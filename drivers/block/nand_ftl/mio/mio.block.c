@@ -1,0 +1,725 @@
+/******************************************************************************
+ *
+ * (C) COPYRIGHT 2008-2014 EASTWHO CO., LTD ALL RIGHTS RESERVED
+ *
+ * File name    : mio.block.c
+ * Date         : 2014.06.30
+ * Author       : SD.LEE (mcdu1214@eastwho.com)
+ * Abstraction  :
+ * Revision     : V1.0 (2014.06.30 SD.LEE)
+ *
+ * Description  : MIO means "Media I/O"
+ *                Media means any raw storage like ram, nand, nor, etc...
+ *
+ ******************************************************************************/
+#define __MIO_BLOCK_GLOBAL__
+#include "mio.block.h"
+#include "mio.media.h"
+#include "mio.sys.h"
+#include "mio.definition.h"
+
+#include "media/exchange.h"
+
+/******************************************************************************
+ *
+ *
+ *
+ ******************************************************************************/
+static u_int mio_major = 0;
+
+/******************************************************************************
+ * Indicator
+ ******************************************************************************/
+void mio_indicator_init(void);
+void mio_indicator_io_busy(void);
+void mio_indicator_io_idle(void);
+void mio_indicator_bg_busy(void);
+void mio_indicator_bg_idle(void);
+
+/******************************************************************************
+ * Block Device Operation
+ ******************************************************************************/
+static int mio_bdev_open(struct block_device * _bdev, fmode_t _mode);
+static int mio_bdev_close(struct gendisk * _disk, fmode_t _mode);
+static int mio_bdev_ioctl(struct block_device * _bdev, fmode_t _mode, unsigned int _cmd, unsigned long _arg);
+
+static struct block_device_operations mio_bdev_fops =
+{
+    .open = mio_bdev_open,
+    .release = mio_bdev_close,
+    .ioctl = mio_bdev_ioctl,
+    .owner = THIS_MODULE,
+};
+
+/******************************************************************************
+ *
+ ******************************************************************************/
+DEFINE_SEMAPHORE(mio_mutex);
+
+static struct mio_state io_state;
+static struct mio_device mio_dev;
+
+/******************************************************************************
+ *
+ * Block Device Operations
+ *
+ ******************************************************************************/
+static int mio_bdev_open(struct block_device * _bdev, fmode_t _mode)
+{
+    DBG_BLK(KERN_INFO "mio.block: device open: inode is %d\n", iminor(_bdev->bd_inode));
+
+    if (iminor(_bdev->bd_inode) > MIO_MINOR_CNT)
+    {
+        return -ENODEV;
+    }
+
+    return 0;
+}
+
+static int mio_bdev_close(struct gendisk * disk, fmode_t _mode)
+{
+    DBG_BLK(KERN_INFO "mio.block: device close: \n");
+    return 0;
+}
+
+static int mio_bdev_ioctl(struct block_device * _bdev, fmode_t _mode, unsigned int _cmd, unsigned long _arg)
+{
+    DBG_BLK(KERN_INFO "mio.block: device ioctl: \n");
+    return 0;
+}
+
+/******************************************************************************
+ *
+ * MIO KThreads
+ *
+ ******************************************************************************/
+
+/******************************************************************************
+ *
+ ******************************************************************************/
+static int mio_background_thread(void * _arg)
+{
+    struct mio_state * io_state = mio_dev.io_state;
+
+    DBG_BLK(KERN_INFO "mio.block: mio_background_thread: start\n");
+
+    while (!kthread_should_stop())
+    {
+        Exchange.sys.fnSpor();
+        msleep(10);
+
+        /**************************************************************************
+         * Transaction Pending
+         **************************************************************************/
+        if (io_state->transaction.wake.cnt && (get_jiffies_64() > io_state->transaction.wake.time))
+        {
+            io_state->transaction.wake.time = get_jiffies_64() + MIO_TIME_MSEC(10);
+            wake_up_process(io_state->transaction.thread);
+        }
+        /**************************************************************************
+         * MIO Background
+         **************************************************************************/
+        else
+        {
+            // Flush Job
+            if (io_state->transaction.trigger.e.written_flush && (get_jiffies_64() > io_state->background.t.flush))
+            {
+                // Clear Trigger
+                io_state->transaction.trigger.e.written_flush = 0;
+   
+                // Set Background Jobs
+                io_state->background.t.flush = MIO_TIME_DIFF_MAX(get_jiffies_64());
+                io_state->background.e.flush = 1;
+            }
+   
+            // Stanby Job
+            if (io_state->transaction.trigger.e.written_standby && (get_jiffies_64() > io_state->background.t.standby))
+            {
+                // Clear Trigger
+                io_state->transaction.trigger.e.written_standby = 0;
+   
+                // Set Background Jobs
+                io_state->background.t.standby = MIO_TIME_DIFF_MAX(get_jiffies_64());
+                io_state->background.e.standby = 1;
+            }
+   
+            // Background Job
+            if (io_state->transaction.trigger.e.written_bgjobs && (get_jiffies_64() > io_state->background.t.bgjobs))
+            {
+                // Clear Trigger
+                io_state->transaction.trigger.e.written_bgjobs = 0;
+   
+                // Set Background Jobs
+                io_state->background.t.bgjobs = MIO_TIME_DIFF_MAX(get_jiffies_64());
+                io_state->background.e.bgjobs = 1;
+            }
+   
+            // Wake-Up Transaction Thread
+            if (io_state->background.e.flush +
+                io_state->background.e.standby + io_state->background.e.bgjobs)
+            {
+                wake_up_process(io_state->transaction.thread);
+            }
+        }
+    }
+
+    DBG_BLK(KERN_INFO "mio.block: mio_background_thread: end\n");
+
+    return 0;
+}
+
+/******************************************************************************
+ *
+ ******************************************************************************/
+void mio_background(struct mio_state * _io_state)
+{
+    struct mio_state * io_state = _io_state;
+
+    /**************************************************************************
+     * MIO Background : Statistics
+     **************************************************************************/
+#if 0
+    if (get_jiffies_64() > io_state->background.t.ecccheck)
+    {
+        char channel = 0;
+        char way = 0;
+        u64 ecc_uncorrectable_seccnt = 0;
+        u64 ecc_level_detected_seccnt = 0;
+        u64 ecc_corrected_seccnt = 0;
+
+        for (channel = 0; channel < *Exchange.ftl.Channel; channel++)
+        {
+            ecc_uncorrectable_seccnt = 0;
+            ecc_level_detected_seccnt = 0;
+            ecc_corrected_seccnt = 0;
+
+            for (way = 0; way < *Exchange.ftl.Way; way++)
+            {
+                ecc_uncorrectable_seccnt +=
+                ecc_level_detected_seccnt +=
+                ecc_corrected_seccnt +=
+            }
+        }
+
+    }
+
+    if (get_jiffies_64() > io_state->background.t.statistics)
+    {
+        io_state->background.t.statistics = get_jiffies_64() + MIO_TIME_SEC(10*60);
+    }
+#endif
+
+    /**************************************************************************
+     * MIO Background : Background Operations (Migration, Garbage Collection, ...)
+     **************************************************************************/
+    if (io_state->background.e.flush)
+    {
+        io_state->background.e.flush = 0;
+
+        mio_indicator_bg_busy();
+        media_flush(io_state);
+        while (!media_is_idle(io_state));
+        mio_indicator_bg_idle();
+    }
+
+    if (io_state->background.e.standby)
+    {
+        io_state->background.e.standby = 0;
+
+        mio_indicator_bg_busy();
+        media_standby(io_state);
+        while (!media_is_idle(io_state));
+        mio_indicator_bg_idle();
+    }
+
+    if (io_state->background.e.bgjobs)
+    {
+        io_state->background.e.bgjobs = 0;
+
+        mio_indicator_bg_busy();
+        media_background(io_state);
+        while (!media_is_idle(io_state));
+        mio_indicator_bg_idle();
+    }
+}
+
+/******************************************************************************
+ *
+ ******************************************************************************/
+static int mio_transaction(struct request * _req, struct mio_state * _io_state)
+{
+    int ret = 0;
+
+    struct request * req = _req;
+    struct mio_state * io_state = _io_state;
+
+    unsigned int req_dir = rq_data_dir(req);
+    unsigned long req_lba = blk_rq_pos(req);
+    unsigned long req_seccnt = blk_rq_cur_bytes(req) >> 9;
+    char * req_buffer = req->buffer;
+
+    unsigned int cmd_flags = req->cmd_flags;
+    enum rq_cmd_type_bits cmd_type = req->cmd_type;
+
+    if (cmd_type != REQ_TYPE_FS)
+    {
+        return -EIO;
+    }
+
+    if (cmd_flags & REQ_FLUSH)
+    {
+        media_flush(io_state);
+        while (!media_is_idle(io_state));
+
+        // Strange ??
+        if ((blk_rq_pos(req) + blk_rq_cur_sectors(req)) <= get_capacity(req->rq_disk))
+        {
+            return -EIO;
+        }
+
+        io_state->background.t.standby = get_jiffies_64() + MIO_TIME_MSEC(100);
+        io_state->background.e.standby = 0;
+        io_state->transaction.trigger.e.written_standby = 1;
+
+        io_state->background.t.bgjobs = get_jiffies_64() + MIO_TIME_MSEC(200);
+        io_state->background.e.bgjobs = 0;
+        io_state->transaction.trigger.e.written_bgjobs = 1;
+
+        return ret;
+    }
+
+    if ((blk_rq_pos(req) + blk_rq_cur_sectors(req)) > get_capacity(req->rq_disk))
+    {
+        return -EIO;
+    }
+
+    switch (req_dir)
+    {
+        case READ:  { req_dir = 0; media_read(req_lba, req_seccnt, req_buffer, io_state); } break;
+        case WRITE: { media_write(req_lba, req_seccnt, req_buffer, io_state); } break;
+        default:    { return -EIO; }
+    }
+
+    io_state->transaction.trigger.t.ioed = get_jiffies_64();
+    io_state->background.t.flush = get_jiffies_64() + MIO_TIME_MSEC(50);
+    io_state->background.e.flush = 0;
+    io_state->background.t.standby = get_jiffies_64() + MIO_TIME_MSEC(100);
+    io_state->background.e.standby = 0;
+    io_state->background.t.bgjobs = get_jiffies_64() + MIO_TIME_MSEC(200);
+    io_state->background.e.bgjobs = 0;
+
+    // !! Trigger Must Be Here !!
+    if (WRITE == req_dir)
+    {
+        io_state->transaction.trigger.e.written_flush = 1;
+        io_state->transaction.trigger.e.written_standby = 1;
+        io_state->transaction.trigger.e.written_bgjobs = 1;
+    }
+
+    if (Exchange.debug.misc.block)
+    {
+        unsigned int i = 0;
+
+        __PRINT("mio.block: request: %s(%xh,%d) - Done\n", (WRITE == req_dir) ? "write" : " read", (unsigned int)req_lba, req_seccnt);
+
+        for (i = 0; i < 32; i++)
+        {
+            __PRINT("%02x ", req_buffer[i]);
+        }
+
+        __PRINT("\n");
+    }
+    
+    return ret;
+}
+
+/******************************************************************************
+ *
+ ******************************************************************************/
+static int mio_transaction_thread(void * _arg)
+{
+    struct mio_state * io_state = mio_dev.io_state;
+    struct request_queue * rq = io_state->transaction.rq;
+    struct mutex * mlock = &io_state->transaction.thread_mutex;
+    struct request * req = NULL;
+
+    DBG_BLK(KERN_INFO "mio.block: mio_transaction_thread: start\n");
+
+    spin_lock_irq(rq->queue_lock);
+
+    while (!kthread_should_stop())
+    {
+        int res = 0;
+
+        Exchange.sys.fnSpor();
+
+        if (!req && !(req = blk_fetch_request(rq)))
+        {
+            // Background Jobs
+            spin_unlock_irq(rq->queue_lock);
+            mutex_lock(mlock);
+            mio_background(io_state);
+            mutex_unlock(mlock);
+            spin_lock_irq(rq->queue_lock);
+
+            set_current_state(TASK_INTERRUPTIBLE);
+
+            if (kthread_should_stop())
+            {
+                set_current_state(TASK_RUNNING);
+            }
+
+            if ((io_state->transaction.trigger.t.ioed + MIO_TIME_MSEC(50)) > get_jiffies_64())
+            {
+                spin_unlock_irq(rq->queue_lock);
+                mutex_lock(mlock);
+                media_super();
+                mutex_unlock(mlock);
+                spin_lock_irq(rq->queue_lock);
+            }
+            else
+            {
+                spin_unlock_irq(rq->queue_lock);
+                schedule();
+                spin_lock_irq(rq->queue_lock);
+            }
+
+            continue;
+        }
+
+        spin_unlock_irq(rq->queue_lock);
+        mutex_lock(mlock);
+        {
+            media_super();
+            res = mio_transaction(req, io_state);
+
+            if (io_state->transaction.wake.cnt) { io_state->transaction.wake.cnt -= 1; }
+            io_state->transaction.wake.time = MIO_TIME_DIFF_MAX(get_jiffies_64());
+
+            mio_indicator_io_idle();
+        }
+        mutex_unlock(mlock);
+        spin_lock_irq(rq->queue_lock);
+
+        if (!__blk_end_request_cur(req, res))
+        {
+            req = NULL;
+        }
+    }
+
+    if (req)
+    {
+        __blk_end_request_all(req, -EIO);
+    }
+
+    spin_unlock_irq(rq->queue_lock);
+
+    DBG_BLK(KERN_INFO "mio.block: mio_transaction_thread: end\n");
+
+    return 0;
+}
+
+/******************************************************************************
+ *
+ ******************************************************************************/
+static void mio_request_fetch(struct request_queue * _q)
+{
+    struct mio_state * io_state = _q->queuedata;
+
+    // Wake Up Thread
+    mio_indicator_io_busy();
+    io_state->transaction.wake.cnt += 1;
+    io_state->transaction.wake.time = get_jiffies_64() + MIO_TIME_MSEC(10);
+
+    wake_up_process(io_state->transaction.thread);
+}
+
+/******************************************************************************
+ *
+ ******************************************************************************/
+static int __init mio_init(void)
+{
+    mio_indicator_init();
+
+    printk(KERN_INFO "mio.block:\n");
+    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "mio.block:  Module Init Start\n");
+    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
+
+    mio_dev.miosys = &miosys;
+    mio_dev.mutex = &mio_mutex;
+    mio_dev.io_state = &io_state;
+
+    /**************************************************************************
+     * Open Media
+     **************************************************************************/
+    if ((mio_dev.capacity = media_open()) < 0)
+    {
+        int ret = mio_dev.capacity;
+        mio_dev.capacity = 0;
+
+        return ret;
+    }
+
+    /**************************************************************************
+     * Register Block Device Driver
+     **************************************************************************/
+    down(mio_dev.mutex);
+    {
+        /**********************************************************************
+         * Register "mio" Block Device Driver
+         **********************************************************************/
+        if ((mio_major = register_blkdev(mio_major, "mio")) <= 0)
+        {
+            printk(KERN_ERR "mio.block: unable to get major number\n");
+            media_close();
+
+            return -ENODEV;
+        }
+
+        /**********************************************************************
+         *
+         **********************************************************************/
+        mio_dev.io_state->background.t.ecccheck = MIO_TIME_DIFF_MAX(get_jiffies_64());
+        mio_dev.io_state->background.t.statistics = MIO_TIME_DIFF_MAX(get_jiffies_64());
+        mio_dev.io_state->background.t.flush = MIO_TIME_DIFF_MAX(get_jiffies_64());
+        mio_dev.io_state->background.t.standby = MIO_TIME_DIFF_MAX(get_jiffies_64());
+        mio_dev.io_state->background.t.bgjobs = MIO_TIME_DIFF_MAX(get_jiffies_64());
+        mio_dev.io_state->background.e.ecccheck = 0;
+        mio_dev.io_state->background.e.statistics = 0;
+        mio_dev.io_state->background.e.flush = 0;
+        mio_dev.io_state->background.e.standby = 0;
+        mio_dev.io_state->background.e.bgjobs = 0;
+
+        mio_dev.io_state->transaction.thread = NULL;
+        mio_dev.io_state->transaction.rq = NULL;
+        spin_lock_init(&mio_dev.io_state->transaction.lock);
+        mutex_init(&mio_dev.io_state->transaction.thread_mutex);
+
+        mio_dev.io_state->transaction.trigger.t.ioed = MIO_TIME_DIFF_MAX(get_jiffies_64());
+        mio_dev.io_state->transaction.trigger.e.written_flush = 0;
+        mio_dev.io_state->transaction.trigger.e.written_standby = 0;
+        mio_dev.io_state->transaction.trigger.e.written_bgjobs = 0;
+        mio_dev.io_state->transaction.trigger.e.force_flush = 0;
+
+        /**********************************************************************
+         * Request Queue Create
+         **********************************************************************/
+        if (NULL == (mio_dev.io_state->transaction.rq = blk_init_queue(mio_request_fetch, &mio_dev.io_state->transaction.lock)))
+        {
+            printk(KERN_ERR "mio.block: blk_init_queue failure\n");
+            unregister_blkdev(mio_major, "mio");
+            media_close();
+
+            return -ENODEV;
+        }
+
+        if (elevator_change(mio_dev.io_state->transaction.rq, "noop"))
+        {
+            blk_cleanup_queue(mio_dev.io_state->transaction.rq);
+            return -ENODEV;
+        }
+
+        mio_dev.io_state->transaction.rq->queuedata = mio_dev.io_state;
+
+        /**************************************************************************
+         * KThreads
+         **************************************************************************/
+        if (NULL == mio_dev.io_state->transaction.thread)
+        {
+            mio_dev.io_state->transaction.thread = (struct task_struct *)kthread_run(mio_transaction_thread, mio_dev.io_state, "mio_transaction_thread");
+
+            if (IS_ERR(mio_dev.io_state->transaction.thread))
+            {
+                mio_dev.io_state->transaction.thread = NULL;
+
+                blk_cleanup_queue(mio_dev.io_state->transaction.rq);
+                return -ENODEV;
+            }
+        }
+
+        if (NULL == mio_dev.io_state->background.thread)
+        {
+            mio_dev.io_state->background.thread = (struct task_struct *)kthread_run(mio_background_thread, mio_dev.io_state, "mio_background_thread");
+
+            if (IS_ERR(mio_dev.io_state->background.thread))
+            {
+                mio_dev.io_state->background.thread = NULL;
+                if (mio_dev.io_state->transaction.thread) { kthread_stop(mio_dev.io_state->transaction.thread); mio_dev.io_state->transaction.thread = NULL; }
+
+                blk_cleanup_queue(mio_dev.io_state->transaction.rq);
+                return -ENODEV;
+            }
+        }
+
+        /**********************************************************************
+         * The gendisk structure
+         *
+         *  - int major;
+         *
+         *  - int first_minor;
+         *
+         *  - int minors;
+         *     Fields that describe the device number(s) used by the disk.
+         *     At a minimum, a drive must use at least one minor number.
+         *     If your drive is to be partitionable, however (and most should be),
+         *     you want to allocate one minor number for each possible partition as well.
+         *     A common value for minors is 16, which allows for the "full disk" device
+         *     and 15 partitions. Some disk drivers use 64 minor numbers for each device.
+         *
+         *  - char disk_name[32];
+         *     Field that should be set to the name of the disk device.
+         *     It shows up in /proc/partitions and sysfs.
+         *
+         *  - struct block_device_operations *fops;
+         *     Set of device operations from the previous section.
+         *
+         *  - struct request_queue *queue;
+         *     Structure used by the kernel to manage I/O requests for this device
+         *
+         *  - int flags;
+         *     A (little-used) set of flags describing the state of the drive.
+         *     If your device has removable media, you should set GENHD_FL_REMOVABLE.
+         *     CD-ROM drives can set GENHD_FL_CD.
+         *     If, for some reason, you do not want partition information to show up in /proc/partitions, set GENHD_FL_SUPPRESS_PARTITION_INFO.
+         *
+         *  - sector_t capacity;
+         *     The capacity of this drive, in 512-byte sectors.
+         *     The sector_t type can be 64 bits wide. Drivers should not set this field directly.
+         *     instead, pass the number of sectors to set_capacity.
+         *
+         *  - void * private_data;
+         *     Block drivers may use this field for a pointer to their own internal data.
+         *
+         **********************************************************************/
+        if (!(mio_dev.disk = alloc_disk(MIO_MINOR_CNT)))
+        {
+            printk(KERN_ERR "mio.block: alloc_disk failure\n");
+            blk_cleanup_queue(mio_dev.io_state->transaction.rq);
+            unregister_blkdev(mio_major, "mio");
+            media_close();
+            return -ENODEV;
+        }
+        else
+        {
+            mio_dev.disk->major = mio_major;
+            mio_dev.disk->first_minor = MIO_FIRST_MINOR;
+            sprintf(mio_dev.disk->disk_name, "mio");
+            mio_dev.disk->fops = &mio_bdev_fops;
+            mio_dev.disk->queue = mio_dev.io_state->transaction.rq;
+            mio_dev.disk->private_data = &mio_dev;
+          //mio_dev.disk->flags = GENHD_FL_SUPPRESS_PARTITION_INFO;
+            set_capacity(mio_dev.disk, mio_dev.capacity);
+
+          //blk_queue_flush(mio_dev.io_state->transaction.rq, REQ_FLUSH);
+            mio_dev.io_state->transaction.rq->flush_flags = REQ_FLUSH & (REQ_FLUSH | REQ_FUA);
+
+            add_disk(mio_dev.disk);
+        }
+
+    }
+    up(mio_dev.mutex);
+
+    /**************************************************************************
+     * Register : /sys/class/misc/miosys
+     **************************************************************************/
+    if (misc_register(mio_dev.miosys))
+    {
+        printk(KERN_ERR "mio.block: misc_register failure\n");
+        return -ENODEV;
+    }
+
+    /**************************************************************************
+     * Now the disk is "live"
+     **************************************************************************/
+    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "mio.block:  Module Init Done: Capacity %xh(%d) Sectors = %d MB: \n", mio_dev.capacity, mio_dev.capacity, ((mio_dev.capacity>>10)<<9)>>10);
+    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "mio.block:\n");
+
+    return 0;
+}
+
+/******************************************************************************
+ *
+ ******************************************************************************/
+static void __exit mio_exit(void)
+{
+    printk(KERN_INFO "mio.block:\n");
+    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "mio.block:  Module Exit Start\n");
+    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
+
+    /**************************************************************************
+     * Un-Register : /sys/class/misc/miosys
+     **************************************************************************/
+    misc_deregister(mio_dev.miosys);
+
+    /**************************************************************************
+     * Un-Register Block Device Driver
+     **************************************************************************/
+    down(mio_dev.mutex);
+    {
+        del_gendisk(mio_dev.disk);
+        put_disk(mio_dev.disk);
+
+        if (mio_dev.io_state->background.thread) { kthread_stop(mio_dev.io_state->background.thread); mio_dev.io_state->background.thread = NULL; }
+        if (mio_dev.io_state->transaction.thread) { kthread_stop(mio_dev.io_state->transaction.thread); mio_dev.io_state->transaction.thread = NULL; }
+
+        blk_cleanup_queue(mio_dev.io_state->transaction.rq);
+        unregister_blkdev(mio_major, "mio");
+    }
+    up(mio_dev.mutex);
+
+    /**************************************************************************
+     * Close Media
+     **************************************************************************/
+    media_close();
+
+    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "mio.block:  Module Exit Done\n");
+    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "mio.block:\n");
+}
+
+module_init(mio_init);
+module_exit(mio_exit);
+MODULE_LICENSE("EWS");
+MODULE_AUTHOR("SD.LEE");
+MODULE_DESCRIPTION("Media I/O Block Driver");
+MODULE_ALIAS_BLOCKDEV_MAJOR(mio_major);
+
+
+/******************************************************************************
+ * LED Indicator
+ ******************************************************************************/
+extern int /* -1 = invalid gpio, 0 = gpio's input mode, 1 = gpio's output mode. */ nxp_soc_gpio_get_io_dir(unsigned int /* gpio pad number, 32*n + bit (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)*/);
+extern void nxp_soc_gpio_set_io_dir(unsigned int /* gpio pad number, 32*n + bit (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)*/, int /* '1' is output mode, '0' is input mode */);
+extern void nxp_soc_gpio_set_out_value(unsigned int /* gpio pad number, 32*n + bit (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)*/, int /* '1' is high level, '0' is low level */);
+
+void mio_indicator_init(void)
+{
+    nxp_soc_gpio_set_io_dir(32*2+0, 1); // GPIOC0 set output mode
+    nxp_soc_gpio_set_io_dir(32*2+1, 1); // GPIOC1 set output mode
+}
+
+void mio_indicator_io_busy(void)
+{
+    nxp_soc_gpio_set_out_value(32*2+0, 1);
+}
+
+void mio_indicator_io_idle(void)
+{
+    nxp_soc_gpio_set_out_value(32*2+0, 0);
+}
+
+void mio_indicator_bg_busy(void)
+{
+    nxp_soc_gpio_set_out_value(32*2+1, 1);
+}
+
+void mio_indicator_bg_idle(void)
+{
+    nxp_soc_gpio_set_out_value(32*2+1, 0);
+}
+
