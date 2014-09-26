@@ -103,16 +103,21 @@ unsigned long long __div64(unsigned long long _n, unsigned long long _base)
 /******************************************************************************
  *
  ******************************************************************************/
-/*extern*/ unsigned long nxp_ftl_start_blk_idx = 0x1000000; /* byte address, Must Be Multiple of 8MB */
+extern unsigned long nxp_ftl_start_block; /* byte address, Must Be Multiple of 8MB */
+#define _BLOCK_ALIGN_			(8<<20)
 
 /******************************************************************************
  *
  ******************************************************************************/
 void EXCHANGE_init(void)
 {
+	if (nxp_ftl_start_block & (_BLOCK_ALIGN_-1)) {
+		nxp_ftl_start_block = ALIGN(nxp_ftl_start_block, _BLOCK_ALIGN_);
+	}
+
+	printk(KERN_INFO "FTL Start Address: 0x%x\n", nxp_ftl_start_block);
     // FTL Start Offset Must Be Multiple Of 8MB
-    Exchange.ewsftl_start_offset  = (nxp_ftl_start_blk_idx + ((8<<20)-1)) / (8<<20);
-    Exchange.ewsftl_start_offset *= (8<<20);
+    Exchange.ewsftl_start_offset  = nxp_ftl_start_block;
     Exchange.ewsftl_start_page    = 0;
     Exchange.ewsftl_start_block   = 0;
 

@@ -12,6 +12,7 @@
  *                Media means any raw storage like ram, nand, nor, etc...
  *
  ******************************************************************************/
+
 #define __MIO_BLOCK_GLOBAL__
 #include "mio.block.h"
 #include "mio.media.h"
@@ -19,6 +20,11 @@
 #include "mio.definition.h"
 
 #include "media/exchange.h"
+
+/* nexell soc headers */
+#include <mach/platform.h>
+#include <mach/devices.h>
+#include <mach/soc.h>
 
 /******************************************************************************
  *
@@ -58,6 +64,8 @@ DEFINE_SEMAPHORE(mio_mutex);
 
 static struct mio_state io_state;
 static struct mio_device mio_dev;
+
+unsigned long nxp_ftl_start_block = CFG_NAND_FTL_START_BLOCK;
 
 /******************************************************************************
  *
