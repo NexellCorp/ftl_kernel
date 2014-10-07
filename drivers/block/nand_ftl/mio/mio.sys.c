@@ -63,21 +63,38 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
     {
         enum
         {
-            STATE_NONE = 0x00,
+            MIOSYS_NONE = 0x00000000,
 
-            STATE_CMD       = 0x10000000,
-            STATE_CMD_DEBUG = STATE_CMD+0x1000,
-            STATE_CMD_CTRL  = STATE_CMD+0x2000,
-            STATE_CMD_SMART = STATE_CMD+0x3000,
+            MIOSYS_REQUEST_SMART     = 0x10000000,
+            MIOSYS_REQUEST_WEARLEVEL = 0x20000000,
 
-            STATE_CMD_DEBUG_NFC_SCHE = STATE_CMD_DEBUG+1,
-            STATE_CMD_DEBUG_NFC_PHY = STATE_CMD_DEBUG+2,
+            MIOSYS_REQEUST_DEBUG = 0x30000000,
 
-            STATE_MAX = 0xFFFFFFFF
+            // # echo "debug block enable" > /dev/miosys
+            // # echo "debug block disable" > /dev/miosys
+            MIOSYS_REQUEST_DEBUG_BLOCK = MIOSYS_REQEUST_DEBUG+1,
 
-        } state = STATE_NONE;
+            // # echo "debug media enable" > /dev/miosys
+            // # echo "debug media disable" > /dev/miosys
+            MIOSYS_REQUEST_DEBUG_MEDIA = MIOSYS_REQEUST_DEBUG+2,
 
-        char delim[] = " -";
+            // # echo "debug nfc.phy.operation enable" > /dev/miosys
+            // # echo "debug nfc.phy.operation disable" > /dev/miosys
+            MIOSYS_REQUEST_DEBUG_NFC_PHY_OPERATION = MIOSYS_REQEUST_DEBUG+3,
+
+            // # echo "debug nfc.phy.rdata enable" > /dev/miosys
+            // # echo "debug nfc.phy.rdata disable" > /dev/miosys
+            MIOSYS_REQUEST_DEBUG_NFC_PHY_READ_DATA = MIOSYS_REQEUST_DEBUG+4,
+
+            // # echo "debug nfc.phy.wdata enable" > /dev/miosys
+            // # echo "debug nfc.phy.wdata disable" > /dev/miosys
+            MIOSYS_REQUEST_DEBUG_NFC_PHY_WRITE_DATA = MIOSYS_REQEUST_DEBUG+5,
+
+            MIOSYS_MAX = 0xFFFFFFFF
+
+        } state = MIOSYS_NONE;
+
+        char delim[] = " ";
         char * token = strtok(cmd_buf, delim);
         int breaker = 0;
 
@@ -87,12 +104,19 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
 
             switch (state)
             {
-                case STATE_NONE:
+                case MIOSYS_NONE:
                 {
-                    if (!memcmp((const void *)token, (const void *)"cmd", strlen("cmd")))
+                    if (!memcmp((const void *)token, (const void *)"smart", strlen("smart")))
                     {
-                        printk("STATE_NONE -> STATE_CMD\n");
-                        state = STATE_CMD;
+                        state = MIOSYS_REQUEST_SMART;
+                    }
+                    else if (!memcmp((const void *)token, (const void *)"wearlevel", strlen("wearlevel")))
+                    {
+                        state = MIOSYS_REQUEST_WEARLEVEL;
+                    }
+                    else if (!memcmp((const void *)token, (const void *)"debug", strlen("debug")))
+                    {
+                        state = MIOSYS_REQEUST_DEBUG;
                     }
                     else
                     {
@@ -101,23 +125,16 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
 
                 } break;
 
-                case STATE_CMD:
+                case MIOSYS_REQUEST_SMART: { breaker = 1; } break;
+                case MIOSYS_REQUEST_WEARLEVEL: { breaker = 1; } break;
+
+                case MIOSYS_REQEUST_DEBUG:
                 {
-                    if (!memcmp((const void *)token, (const void *)"debug", strlen("debug")))
-                    {
-                        printk("STATE_CMD -> STATE_CMD_DEBUG\n");
-                        state = STATE_CMD_DEBUG;
-                    }
-                    else if (!memcmp((const void *)token, (const void *)"ctrl", strlen("ctrl")))
-                    {
-                        printk("STATE_CMD -> STATE_CMD_CTRL\n");
-                        state = STATE_CMD_CTRL;
-                    }
-                    else if (!memcmp((const void *)token, (const void *)"smart", strlen("smart")))
-                    {
-                        printk("STATE_CMD -> STATE_CMD_SMART\n");
-                        state = STATE_CMD_SMART;
-                    }
+                         if (!memcmp((const void *)token, (const void *)"block",             strlen("block")))             { state = MIOSYS_REQUEST_DEBUG_BLOCK; }
+                    else if (!memcmp((const void *)token, (const void *)"media",             strlen("media")))             { state = MIOSYS_REQUEST_DEBUG_MEDIA; }
+                    else if (!memcmp((const void *)token, (const void *)"nfc.phy.operation", strlen("nfc.phy.operation"))) { state = MIOSYS_REQUEST_DEBUG_NFC_PHY_OPERATION; }
+                    else if (!memcmp((const void *)token, (const void *)"nfc.phy.rdata",     strlen("nfc.phy.rdata")))     { state = MIOSYS_REQUEST_DEBUG_NFC_PHY_READ_DATA; }
+                    else if (!memcmp((const void *)token, (const void *)"nfc.phy.wdata",     strlen("nfc.phy.wdata")))     { state = MIOSYS_REQUEST_DEBUG_NFC_PHY_WRITE_DATA; }
                     else
                     {
                         breaker = 1;
@@ -125,70 +142,44 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
 
                 } break;
 
-                case STATE_CMD_DEBUG:
+                case MIOSYS_REQUEST_DEBUG_BLOCK:
                 {
-                    if (!memcmp((const void *)token, (const void *)"nfc.sche", strlen("nfc.sche")))
-                    {
-                        printk("STATE_CMD_DEBUG -> STATE_CMD_DEBUG_NFC_SCHE\n");
-                        state = STATE_CMD_DEBUG_NFC_SCHE;
-                    }
-                    else
-                    {
-                        breaker = 1;
-                    }
+                         if (!memcmp((const void *)token, (const void *)"enable", strlen("enable")))   { Exchange.debug.misc.block = 1; }
+                    else if (!memcmp((const void *)token, (const void *)"disable", strlen("disable"))) { Exchange.debug.misc.block = 0; }
+                    else                                                                               { breaker = 1; }
 
                 } break;
 
-                case STATE_CMD_DEBUG_NFC_SCHE:
+                case MIOSYS_REQUEST_DEBUG_MEDIA:
                 {
-                    printk("STATE_CMD_DEBUG_NFC_SCHE\n");
-                    if (!memcmp((const void *)token, (const void *)"enable", strlen("enable")))
-                    {
-                        printk("NFC.PHY.Debug : Enabled\n");
-                        Exchange.debug.nfc.sche.operation = 1;
-                    }
-                    else if (!memcmp((const void *)token, (const void *)"disable", strlen("disable")))
-                    {
-                        printk("NFC.PHY.Debug : Disabled\n");
-                        Exchange.debug.nfc.sche.operation = 0;
-                    }
-                    else
-                    {
-                        breaker = 1;
-                    }
+                         if (!memcmp((const void *)token, (const void *)"enable", strlen("enable")))   { Exchange.debug.misc.media = 1; }
+                    else if (!memcmp((const void *)token, (const void *)"disable", strlen("disable"))) { Exchange.debug.misc.media = 0; }
+                    else                                                                               { breaker = 1; }
 
                 } break;
 
-                case STATE_CMD_CTRL:
+                case MIOSYS_REQUEST_DEBUG_NFC_PHY_OPERATION:
                 {
-                    printk("STATE_CMD_CTRL\n");
+                         if (!memcmp((const void *)token, (const void *)"enable", strlen("enable")))   { Exchange.debug.nfc.phy.operation = 1; }
+                    else if (!memcmp((const void *)token, (const void *)"disable", strlen("disable"))) { Exchange.debug.nfc.phy.operation = 0; }
+                    else                                                                               { breaker = 1; }
 
                 } break;
 
-                case STATE_CMD_SMART:
+                case MIOSYS_REQUEST_DEBUG_NFC_PHY_READ_DATA:
                 {
-                    unsigned int channel = 0;
-                    unsigned int way = 0;
+                         if (!memcmp((const void *)token, (const void *)"enable", strlen("enable")))   { Exchange.debug.nfc.phy.read_data = 1; }
+                    else if (!memcmp((const void *)token, (const void *)"disable", strlen("disable"))) { Exchange.debug.nfc.phy.read_data = 0; }
+                    else                                                                               { breaker = 1; }
 
-                    printk("EWS.FTL Smart\n");
-                    printk("\n");
-                    printk(" - Power On Time : %d days, %02d:%02d:%2d:%02\n", Exchange.statistics.por_time.day, Exchange.statistics.por_time.hour, Exchange.statistics.por_time.minute, Exchange.statistics.por_time.second, Exchange.statistics.por_time.msecond);
-                    printk(" - Current  Read Command Count : %d\n", Exchange.statistics.ios.cur.read);
-                    printk(" - Current Write Command Count : %d\n", Exchange.statistics.ios.cur.write);
-                    printk(" - Current  Read  Sector Count : %d\n", Exchange.statistics.ios.cur.read_seccnt);
-                    printk(" - Current Write  Sector Count : %d\n", Exchange.statistics.ios.cur.write_seccnt);
-                    printk("\n");
+                } break;
 
-                    for (channel = 0; channel < *Exchange.ftl.Channel; channel++)
-                    {
-                        for (way = 0; way < *Exchange.ftl.Way; way++)
-                        {
+                case MIOSYS_REQUEST_DEBUG_NFC_PHY_WRITE_DATA:
+                {
+                         if (!memcmp((const void *)token, (const void *)"enable", strlen("enable")))   { Exchange.debug.nfc.phy.write_data = 1; }
+                    else if (!memcmp((const void *)token, (const void *)"disable", strlen("disable"))) { Exchange.debug.nfc.phy.write_data = 0; }
+                    else                                                                               { breaker = 1; }
 
-                        }
-                    }
-
-
-                
                 } break;
 
                 default:

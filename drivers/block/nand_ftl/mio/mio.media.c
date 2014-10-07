@@ -90,6 +90,7 @@ int media_open(void)
     Exchange.debug.ftl.open = 1;
     Exchange.debug.ftl.memory_usage = 1;
     Exchange.debug.ftl.boot = 1;
+    Exchange.debug.ftl.block_summary = 1;
     Exchange.debug.ftl.error = 1;
 
   //Exchange.debug.nfc.sche.operation = 1;
@@ -231,14 +232,7 @@ void media_write(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_s
     Exchange.statistics.ios.accumulate.write += (seccnt << 9);
     Exchange.statistics.ios.accumulate.write_seccnt += seccnt;
 
-    {
-        unsigned int super_loop = 40;
-
-        for (; super_loop; super_loop--)
-        {
-            Exchange.ftl.fnMain();
-        }
-    }
+    Exchange.ftl.fnMain();
 #endif
 }
 

@@ -224,30 +224,30 @@ void mio_background(struct mio_state * _io_state)
     {
         io_state->background.e.flush = 0;
 
-        mio_indicator_bg_busy();
+      //mio_indicator_bg_busy();
         media_flush(io_state);
         while (!media_is_idle(io_state));
-        mio_indicator_bg_idle();
+      //mio_indicator_bg_idle();
     }
 
     if (io_state->background.e.standby)
     {
         io_state->background.e.standby = 0;
 
-        mio_indicator_bg_busy();
+      //mio_indicator_bg_busy();
         media_standby(io_state);
         while (!media_is_idle(io_state));
-        mio_indicator_bg_idle();
+      //mio_indicator_bg_idle();
     }
 
     if (io_state->background.e.bgjobs)
     {
         io_state->background.e.bgjobs = 0;
 
-        mio_indicator_bg_busy();
-        media_background(io_state);
-        while (!media_is_idle(io_state));
-        mio_indicator_bg_idle();
+      //mio_indicator_bg_busy();
+      //media_background(io_state);
+      //while (!media_is_idle(io_state));
+      //mio_indicator_bg_idle();
     }
 }
 
@@ -326,16 +326,34 @@ static int mio_transaction(struct request * _req, struct mio_state * _io_state)
 
     if (Exchange.debug.misc.block)
     {
-        unsigned int i = 0;
+        unsigned int _req_bcnt = req_seccnt << 9;
+        unsigned int _i = 0;
+        unsigned int _j = 0;
 
-        __PRINT("mio.block: request: %s(%xh,%d) - Done\n", (WRITE == req_dir) ? "write" : " read", (unsigned int)req_lba, req_seccnt);
-
-        for (i = 0; i < 32; i++)
+        if (WRITE == req_dir)
         {
-            __PRINT("%02x ", req_buffer[i]);
-        }
+            for (_i = 0; _i < _req_bcnt; _i += 512)
+            {
+                __PRINT("Block : Write(%xh,1) .. ", (unsigned int)(req_lba+(_i>>9)));
 
-        __PRINT("\n");
+                for (_j = 0; _j < 16; _j++)
+                {
+                    __PRINT("%02x ", req_buffer[_i+_j]);
+                }   __PRINT(" ... \n");
+            }
+        }
+        else
+        {
+            for (_i = 0; _i < _req_bcnt; _i += 512)
+            {
+                __PRINT("Block :  Read(%xh,1) .. ", (unsigned int)(req_lba+(_i>>9)));
+
+                for (_j = 0; _j < 16; _j++)
+                {
+                    __PRINT("%02x ", req_buffer[_i+_j]);
+                }   __PRINT(" ... \n");
+            }
+        }
     }
     
     return ret;
@@ -381,14 +399,22 @@ static int mio_transaction_thread(void * _arg)
             {
                 spin_unlock_irq(rq->queue_lock);
                 mutex_lock(mlock);
-                media_super();
+                {
+                    mio_indicator_bg_busy();
+                    media_super();
+                    mio_indicator_bg_idle();
+                }
                 mutex_unlock(mlock);
                 spin_lock_irq(rq->queue_lock);
             }
             else
             {
                 spin_unlock_irq(rq->queue_lock);
-                schedule();
+                {
+                    mio_indicator_bg_busy();
+                    schedule();
+                    mio_indicator_bg_idle();
+                }
                 spin_lock_irq(rq->queue_lock);
             }
 
@@ -535,7 +561,8 @@ static int __init mio_init(void)
          **************************************************************************/
         if (NULL == mio_dev.io_state->transaction.thread)
         {
-            mio_dev.io_state->transaction.thread = (struct task_struct *)kthread_run(mio_transaction_thread, mio_dev.io_state, "mio_transaction_thread");
+          //mio_dev.io_state->transaction.thread = (struct task_struct *)kthread_run(mio_transaction_thread, mio_dev.io_state, "mio_transaction_thread");
+            mio_dev.io_state->transaction.thread = (struct task_struct *)kthread_create(mio_transaction_thread, mio_dev.io_state, "mio_transaction_thread");
 
             if (IS_ERR(mio_dev.io_state->transaction.thread))
             {
@@ -544,6 +571,9 @@ static int __init mio_init(void)
                 blk_cleanup_queue(mio_dev.io_state->transaction.rq);
                 return -ENODEV;
             }
+
+            kthread_bind(mio_dev.io_state->transaction.thread, 0);
+            wake_up_process(mio_dev.io_state->transaction.thread);
         }
 
         if (NULL == mio_dev.io_state->background.thread)
@@ -624,7 +654,6 @@ static int __init mio_init(void)
 
             add_disk(mio_dev.disk);
         }
-
     }
     up(mio_dev.mutex);
 

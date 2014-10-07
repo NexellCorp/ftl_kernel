@@ -659,6 +659,7 @@ NFC_PHY_EXT unsigned int NFC_PHY_RData32(void);
  ******************************************************************************/
 NFC_PHY_EXT unsigned int NFC_PHY_Init(unsigned int _scan_format);
 NFC_PHY_EXT void NFC_PHY_DeInit(void);
+NFC_PHY_EXT void NFC_PHY_GetFeatures(unsigned int * _max_channel, unsigned int * _max_way, void * _nand_config);
 NFC_PHY_EXT void NFC_PHY_SetFeatures(unsigned int _max_channel, unsigned int _max_way, void * _nand_config);
 NFC_PHY_EXT int NFC_PHY_EccInfoInit(unsigned int _max_channel, unsigned int _max_way, const unsigned char *_way_map);
 NFC_PHY_EXT void NFC_PHY_EccInfoDeInit(void);

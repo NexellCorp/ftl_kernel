@@ -19,7 +19,7 @@
 
 #include "nfc.phy.h"
 #include "nfc.phy.readretry.h"
-
+#include "nfc.phy.rand.h"
 
 /******************************************************************************
  * to use functions: printf()
@@ -62,12 +62,14 @@
 #include <linux/wait.h>
 #include <linux/vmalloc.h>
 #include <linux/gfp.h>
+#include <linux/math64.h>
 
 #define DBG_PHY_LOWAPI(fmt, args...) printk(fmt, ##args)
 //#define DBG_PHY_LOWAPI(fmt, args...)
 
 #elif defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
 #include <div64.h>
+#include <linux/math64.h>
 #include <common.h>
 #include <malloc.h>
 
@@ -85,68 +87,186 @@ static struct
 {
     unsigned char temp_buf[512];
 
+    unsigned char is_init;
+    MIO_NAND_INFO nandinfo;
+
 } low_api;
 
-static int NFC_PHY_LOWAPI_write(const MIO_NAND_INFO *info, unsigned int block_ofs, unsigned int sectors, void *buf, unsigned char enable_ecc);
-static int NFC_PHY_LOWAPI_read(const MIO_NAND_INFO *info, unsigned int block_ofs, unsigned int page_ofs, unsigned int sec_ofs, unsigned int sectors, void *buf, unsigned char enable_ecc);
-static int NFC_PHY_LOWAPI_erase(const MIO_NAND_INFO *info, unsigned int block_ofs, unsigned int block_cnt);
-static int NFC_PHY_LOWAPI_ofs_write(const MIO_NAND_INFO *info, loff_t ofs, size_t *len, u_char *buf, unsigned char enable_ecc);
-static int NFC_PHY_LOWAPI_ofs_read(const MIO_NAND_INFO *info, loff_t ofs, size_t *len, u_char *buf, unsigned char enable_ecc);
-static int NFC_PHY_LOWAPI_ofs_erase(const MIO_NAND_INFO *info, loff_t ofs, size_t size);
+static int NFC_PHY_LOWAPI_write(unsigned int block_ofs, unsigned int sectors, void *buf, unsigned char enable_ecc);
+static int NFC_PHY_LOWAPI_read(unsigned int block_ofs, unsigned int page_ofs, unsigned int sec_ofs, unsigned int sectors, void *buf, unsigned char enable_ecc);
+static int NFC_PHY_LOWAPI_erase(unsigned int block_ofs, unsigned int block_cnt);
+static int NFC_PHY_LOWAPI_ofs_write(loff_t ofs, size_t *len, u_char *buf, unsigned char enable_ecc);
+static int NFC_PHY_LOWAPI_ofs_read(loff_t ofs, size_t *len, u_char *buf, unsigned char enable_ecc);
+static int NFC_PHY_LOWAPI_ofs_erase(loff_t ofs, size_t size);
 
 /******************************************************************************
  * extern functions
  ******************************************************************************/
-int NFC_PHY_LOWAPI_nand_write(const MIO_NAND_INFO *info, loff_t ofs, size_t *len, u_char *buf)
+int NFC_PHY_LOWAPI_init(void)
+{
+    int ret = 0;
+    NAND * nand_config = (NAND *)&phy_features.nand_config;
+    unsigned int channels = 1, ways = 1; 
+
+    if (Exchange.ftl.fnIsBooted)
+    {
+        if (Exchange.ftl.fnIsBooted())
+        {
+            low_api.nandinfo.channel = 0;
+            low_api.nandinfo.phyway = 0;
+            low_api.nandinfo.pages_per_block = nand_config->_f.pages_per_block;
+            low_api.nandinfo.bytes_per_page = nand_config->_f.databytes_per_page;
+            low_api.nandinfo.blocks_per_lun = nand_config->_f.mainblocks_per_lun;
+            low_api.nandinfo.ecc_bits = nand_config->_f.number_of_bits_ecc_correctability;
+            low_api.nandinfo.bytes_per_ecc = nand_config->_f.maindatabytes_per_eccunit;
+            low_api.nandinfo.bytes_per_parity = (14 * low_api.nandinfo.ecc_bits + 7) / 8;
+            low_api.nandinfo.bytes_per_parity = (low_api.nandinfo.bytes_per_parity + (4-1)) & ~(4-1);
+            low_api.nandinfo.readretry_type = nand_config->_f.support_type.read_retry;
+
+            low_api.is_init = 1;
+
+            DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_init: OK (by FTL Boot)\n");
+            return 0;
+        }
+    }
+
+    if (low_api.is_init)
+    {
+        return 0;
+    }
+
+    ret = NFC_PHY_Init(1);
+    if (ret < 0)
+    {
+        DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_init: error! Init:%d\n", ret);
+        return -1;
+    }
+
+    ret = NFC_PHY_EccInfoInit(channels, ways, 0);
+    if (ret < 0)
+    {
+        DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_init: error! EccInfo Init:%d\n", ret);
+        return -1;
+    }
+    NFC_PHY_SetFeatures(channels, ways, (void *)nand_config);
+
+    ret = 0;
+    switch(nand_config->_f.support_type.read_retry)
+    {
+        case NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
+        case NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
+        case NAND_PHY_READRETRY_TYPE_HYNIX_1xNM_MLC:
+        {
+            ret = NFC_PHY_HYNIX_READRETRY_Init(channels, ways, 0, nand_config->_f.support_type.read_retry);
+            if (ret >= 0)
+            {
+                ret = NFC_PHY_HYNIX_READRETRY_MakeRegAll();
+            }
+        } break;
+    }
+    if (ret < 0)
+    {
+        DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_init: error! HynixReadRetry!\n");
+    }
+
+    ret = NFC_PHY_RAND_Init(nand_config->_f.maindatabytes_per_eccunit);
+    if (ret < 0)
+    {
+        DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_init: error! Randomize\n");
+        return -1;
+    }
+    NFC_PHY_RAND_Enable(1);
+
+    if (ret >= 0)
+    {
+        low_api.nandinfo.channel = 0;
+        low_api.nandinfo.phyway = 0;
+        low_api.nandinfo.pages_per_block = nand_config->_f.pages_per_block;
+        low_api.nandinfo.bytes_per_page = nand_config->_f.databytes_per_page;
+        low_api.nandinfo.blocks_per_lun = nand_config->_f.mainblocks_per_lun;
+        low_api.nandinfo.ecc_bits = nand_config->_f.number_of_bits_ecc_correctability;
+        low_api.nandinfo.bytes_per_ecc = nand_config->_f.maindatabytes_per_eccunit;
+        low_api.nandinfo.bytes_per_parity = (14 * low_api.nandinfo.ecc_bits + 7) / 8;
+        low_api.nandinfo.bytes_per_parity = (low_api.nandinfo.bytes_per_parity + (4-1)) & ~(4-1);
+        low_api.nandinfo.readretry_type = nand_config->_f.support_type.read_retry;
+
+        low_api.is_init = 1;
+
+        DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_init: OK\n");
+    }
+
+    return ret;
+}
+
+void NFC_PHY_LOWAPI_deinit(void)
+{
+    if (Exchange.ftl.fnIsBooted)
+    {
+        if (Exchange.ftl.fnIsBooted())
+        {
+            low_api.is_init = 0;
+            return;
+        }
+    }
+
+    if (low_api.is_init)
+    {
+        NFC_PHY_RAND_DeInit();
+
+        switch(low_api.nandinfo.readretry_type)
+        {
+            case NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
+            case NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
+            case NAND_PHY_READRETRY_TYPE_HYNIX_1xNM_MLC:
+            {
+                NFC_PHY_HYNIX_READRETRY_DeInit();
+            } break;
+        }
+
+        NFC_PHY_DeInit();
+        NFC_PHY_EccInfoDeInit();
+
+        low_api.is_init = 0;
+    }
+}
+
+int NFC_PHY_LOWAPI_is_init(void)
+{
+    return (low_api.is_init);
+}
+
+int NFC_PHY_LOWAPI_nand_write(loff_t ofs, size_t *len, u_char *buf)
 {
     unsigned char enable_ecc = 1;
 
-    return NFC_PHY_LOWAPI_ofs_write(info, ofs, len, buf, enable_ecc);
+    return NFC_PHY_LOWAPI_ofs_write(ofs, len, buf, enable_ecc);
 }
 
-int NFC_PHY_LOWAPI_nand_read(const MIO_NAND_INFO *info, loff_t ofs, size_t *len, u_char *buf)
+int NFC_PHY_LOWAPI_nand_read(loff_t ofs, size_t *len, u_char *buf)
 {
     unsigned char enable_ecc = 1;
 
-    return NFC_PHY_LOWAPI_ofs_read(info, ofs, len, buf, enable_ecc);
+    return NFC_PHY_LOWAPI_ofs_read(ofs, len, buf, enable_ecc);
 }
 
-int NFC_PHY_LOWAPI_nand_erase(const MIO_NAND_INFO *info, loff_t ofs, size_t size)
+int NFC_PHY_LOWAPI_nand_erase(loff_t ofs, size_t size)
 {
-    return NFC_PHY_LOWAPI_ofs_erase(info, ofs, size);
+    return NFC_PHY_LOWAPI_ofs_erase(ofs, size);
 }
-
-int NFC_PHY_LOWAPI_nand_raw_write(const MIO_NAND_INFO *info, loff_t ofs, size_t *len, u_char *buf)
-{
-    unsigned char enable_ecc = 0;
-
-    return NFC_PHY_LOWAPI_ofs_write(info, ofs, len, buf, enable_ecc);
-}
-
-#if 0
-// this function is defined in 'nfc.phy.lowapi.rawread.c' file for small code size.
-// but, you can also use this function, too.
-
-int NFC_PHY_LOWAPI_nand_raw_read(const MIO_NAND_INFO *info, loff_t ofs, size_t *len, u_char *buf)
-{
-    unsigned char enable_ecc = 0;
-
-    return NFC_PHY_LOWAPI_ofs_read(info, ofs, len, buf, enable_ecc);
-}
-#endif
 
 /******************************************************************************
  * local functions
  ******************************************************************************/
-int NFC_PHY_LOWAPI_ofs_write(const MIO_NAND_INFO *info, loff_t ofs, size_t *len, u_char *buf, unsigned char enable_ecc)
+int NFC_PHY_LOWAPI_ofs_write(loff_t ofs, size_t *len, u_char *buf, unsigned char enable_ecc)
 {
+    MIO_NAND_INFO *info = &low_api.nandinfo; 
     unsigned int block_ofs=0, page_ofs=0, sector_ofs=0, byte_ofs=0;
     unsigned int sectors= (*len) / 512;
     unsigned int curr_blockindex = 0;
 
-    byte_ofs   = ofs & (512 - 1);                        ofs = do_div(ofs, 512);                      //ofs /= 512;
-    sector_ofs = ofs & ((info->bytes_per_page/512) - 1); ofs = do_div(ofs, info->bytes_per_page/512); //ofs /= (info->bytes_per_page/512);
-    page_ofs   = ofs & (info->pages_per_block - 1);      ofs = do_div(ofs, info->pages_per_block);    //ofs /= info->pages_per_block;
+    byte_ofs   = ofs & (512 - 1);                        ofs = div_u64(ofs, 512);                      //ofs /= 512;
+    sector_ofs = ofs & ((info->bytes_per_page/512) - 1); ofs = div_u64(ofs, info->bytes_per_page/512); //ofs /= (info->bytes_per_page/512);
+    page_ofs   = ofs & (info->pages_per_block - 1);      ofs = div_u64(ofs, info->pages_per_block);    //ofs /= info->pages_per_block;
     block_ofs  = ofs;
 
     if (byte_ofs || sector_ofs || page_ofs || (*len & (512-1)) || (sectors & 1))
@@ -157,7 +277,7 @@ int NFC_PHY_LOWAPI_ofs_write(const MIO_NAND_INFO *info, loff_t ofs, size_t *len,
         return -1;
     }
 
-    curr_blockindex = NFC_PHY_LOWAPI_write(info, block_ofs, sectors, buf, enable_ecc);
+    curr_blockindex = NFC_PHY_LOWAPI_write(block_ofs, sectors, buf, enable_ecc);
     if (curr_blockindex < 0)
     {
         *len = 0;
@@ -168,8 +288,9 @@ int NFC_PHY_LOWAPI_ofs_write(const MIO_NAND_INFO *info, loff_t ofs, size_t *len,
     return curr_blockindex;
 }
 
-int NFC_PHY_LOWAPI_ofs_read(const MIO_NAND_INFO *info, loff_t ofs, size_t *len, u_char *buf, unsigned char enable_ecc)
+int NFC_PHY_LOWAPI_ofs_read(loff_t ofs, size_t *len, u_char *buf, unsigned char enable_ecc)
 {
+    MIO_NAND_INFO *info = &low_api.nandinfo; 
     unsigned int block_ofs=0, page_ofs=0, byte_ofs=0, sector_ofs=0;
     unsigned int sectors=0;
     unsigned char *destbuf = (unsigned char *)buf;
@@ -177,9 +298,9 @@ int NFC_PHY_LOWAPI_ofs_read(const MIO_NAND_INFO *info, loff_t ofs, size_t *len, 
     unsigned int copybytes = 0;
     int curr_blockindex = -1;
 
-    byte_ofs   = ofs & (512 - 1);                        ofs = do_div(ofs, 512);                      //ofs /= 512;
-    sector_ofs = ofs & ((info->bytes_per_page/512) - 1); ofs = do_div(ofs, info->bytes_per_page/512); //ofs /= (info->bytes_per_page/512);
-    page_ofs   = ofs & (info->pages_per_block - 1);      ofs = do_div(ofs, info->pages_per_block);    //ofs /= info->pages_per_block;
+    byte_ofs   = ofs & (512 - 1);                        ofs = div_u64(ofs, 512);                      //ofs /= 512;
+    sector_ofs = ofs & ((info->bytes_per_page/512) - 1); ofs = div_u64(ofs, info->bytes_per_page/512); //ofs /= (info->bytes_per_page/512);
+    page_ofs   = ofs & (info->pages_per_block - 1);      ofs = div_u64(ofs, info->pages_per_block);    //ofs /= info->pages_per_block;
     block_ofs = ofs;
 
     do
@@ -188,11 +309,13 @@ int NFC_PHY_LOWAPI_ofs_read(const MIO_NAND_INFO *info, loff_t ofs, size_t *len, 
         if (byte_ofs)
         {
             copybytes = 512 - byte_ofs;
-            curr_blockindex = NFC_PHY_LOWAPI_read(info, block_ofs, page_ofs, sector_ofs, 1, low_api.temp_buf, enable_ecc);
+            curr_blockindex = NFC_PHY_LOWAPI_read(block_ofs, page_ofs, sector_ofs, 1, low_api.temp_buf, enable_ecc);
             if (curr_blockindex < 0)
             {
                 break;
             }
+
+            block_ofs += (curr_blockindex - block_ofs);
 
             memcpy(destbuf, low_api.temp_buf+byte_ofs, copybytes);
 
@@ -209,18 +332,19 @@ int NFC_PHY_LOWAPI_ofs_read(const MIO_NAND_INFO *info, loff_t ofs, size_t *len, 
                     page_ofs = 0;
                 }
             }
-            block_ofs += (curr_blockindex - block_ofs);
         }
 
         // for sector aligned data
         sectors = remain_bytes / 512;
         if (sectors)
         {
-            curr_blockindex = NFC_PHY_LOWAPI_read(info, block_ofs, page_ofs, sector_ofs, sectors, destbuf, enable_ecc);
+            curr_blockindex = NFC_PHY_LOWAPI_read(block_ofs, page_ofs, sector_ofs, sectors, destbuf, enable_ecc);
             if (curr_blockindex < 0)
             {
                 break;
             }
+
+            block_ofs += (curr_blockindex - block_ofs);
 
             destbuf += sectors * 512;
             remain_bytes -= sectors * 512;
@@ -236,13 +360,12 @@ int NFC_PHY_LOWAPI_ofs_read(const MIO_NAND_INFO *info, loff_t ofs, size_t *len, 
                     page_ofs &= (info->pages_per_block - 1);
                 }
             }
-            block_ofs += (curr_blockindex - block_ofs);
         }
 
         // for last not sector aligned data
         if (remain_bytes)
         {
-            curr_blockindex = NFC_PHY_LOWAPI_read(info, block_ofs, page_ofs, sector_ofs, 1, low_api.temp_buf, enable_ecc);
+            curr_blockindex = NFC_PHY_LOWAPI_read(block_ofs, page_ofs, sector_ofs, 1, low_api.temp_buf, enable_ecc);
             if (curr_blockindex < 0)
             {
                 break;
@@ -258,29 +381,31 @@ int NFC_PHY_LOWAPI_ofs_read(const MIO_NAND_INFO *info, loff_t ofs, size_t *len, 
     return curr_blockindex;
 }
 
-int NFC_PHY_LOWAPI_ofs_erase(const MIO_NAND_INFO *info, loff_t ofs, size_t size)
+int NFC_PHY_LOWAPI_ofs_erase(loff_t ofs, size_t size)
 {
+    MIO_NAND_INFO *info = &low_api.nandinfo;
     loff_t ofs_org = ofs;
     unsigned int block_ofs=0, page_ofs=0, sector_ofs=0, byte_ofs=0;
     unsigned int end_block_ofs=0, block_cnt=0;
 
-    byte_ofs = ofs & (512 - 1);                          ofs = do_div(ofs, 512);                      //ofs /= 512;
-    sector_ofs = ofs & ((info->bytes_per_page/512) - 1); ofs = do_div(ofs, info->bytes_per_page/512); //ofs /= (info->bytes_per_page/512);
-    page_ofs = ofs & (info->pages_per_block - 1);        ofs = do_div(ofs, info->pages_per_block);    //ofs /= info->pages_per_block;
+    byte_ofs = ofs & (512 - 1);                          ofs = div_u64(ofs, 512);                      //ofs /= 512;
+    sector_ofs = ofs & ((info->bytes_per_page/512) - 1); ofs = div_u64(ofs, info->bytes_per_page/512); //ofs /= (info->bytes_per_page/512);
+    page_ofs = ofs & (info->pages_per_block - 1);        ofs = div_u64(ofs, info->pages_per_block);    //ofs /= info->pages_per_block;
     block_ofs = ofs;
 
     ofs = ofs_org + size - 1;
-    byte_ofs = ofs & (512 - 1);                          ofs = do_div(ofs, 512);                      //ofs /= 512;
-    sector_ofs = ofs & ((info->bytes_per_page/512) - 1); ofs = do_div(ofs, info->bytes_per_page/512); //ofs /= (info->bytes_per_page/512);
-    page_ofs = ofs & (info->pages_per_block - 1);        ofs = do_div(ofs, info->pages_per_block);    //ofs /= info->pages_per_block;
+    byte_ofs = ofs & (512 - 1);                          ofs = div_u64(ofs, 512);                      //ofs /= 512;
+    sector_ofs = ofs & ((info->bytes_per_page/512) - 1); ofs = div_u64(ofs, info->bytes_per_page/512); //ofs /= (info->bytes_per_page/512);
+    page_ofs = ofs & (info->pages_per_block - 1);        ofs = div_u64(ofs, info->pages_per_block);    //ofs /= info->pages_per_block;
     end_block_ofs = ofs;
-
     block_cnt = end_block_ofs - block_ofs + 1;
-    return NFC_PHY_LOWAPI_erase(info, block_ofs, block_cnt);
+
+    return NFC_PHY_LOWAPI_erase(block_ofs, block_cnt);
 }
 
-int NFC_PHY_LOWAPI_write(const MIO_NAND_INFO *info, unsigned int block_ofs, unsigned int sectors, void *buf, unsigned char enable_ecc)
+int NFC_PHY_LOWAPI_write(unsigned int block_ofs, unsigned int sectors, void *buf, unsigned char enable_ecc)
 {
+    MIO_NAND_INFO *info = &low_api.nandinfo;
     unsigned char channel = info->channel;
     unsigned char phyway = info->phyway;
     unsigned int sectors_per_page = (info->bytes_per_page >> 9);
@@ -358,23 +483,27 @@ int NFC_PHY_LOWAPI_write(const MIO_NAND_INFO *info, unsigned int block_ofs, unsi
         }
         else
         {
-            curr_pageindex += 1;
-            if (curr_pageindex >= info->pages_per_block)
-            {
-                curr_blockindex += 1;
-                curr_pageindex = 0;
-            }
-
             remain_sectors -= curr_sectors;
             curr_buff += info->bytes_per_page;
+
+            if (remain_sectors)
+            {
+                curr_pageindex += 1;
+                if (curr_pageindex >= info->pages_per_block)
+                {
+                    curr_blockindex += 1;
+                    curr_pageindex = 0;
+                }
+            }
         }
     }
 
     return curr_blockindex;
 }
 
-int NFC_PHY_LOWAPI_read(const MIO_NAND_INFO *info, unsigned int block_ofs, unsigned int page_ofs, unsigned int sec_ofs, unsigned int sectors, void *buf, unsigned char enable_ecc)
+int NFC_PHY_LOWAPI_read(unsigned int block_ofs, unsigned int page_ofs, unsigned int sec_ofs, unsigned int sectors, void *buf, unsigned char enable_ecc)
 {
+    MIO_NAND_INFO *info = &low_api.nandinfo;
     unsigned char channel = info->channel;
     unsigned char phyway = info->phyway;
     unsigned char way = phyway;
@@ -534,16 +663,19 @@ int NFC_PHY_LOWAPI_read(const MIO_NAND_INFO *info, unsigned int block_ofs, unsig
         }
         else
         {
-            curr_sec_ofs = 0;
-            curr_pageindex += 1;
-            if (curr_pageindex >= info->pages_per_block)
-            {
-                curr_blockindex += 1;
-                curr_pageindex = 0;
-            }
-
             remain_sectors -= curr_sectors;
             curr_buff += (curr_sectors << 9);
+
+            if (remain_sectors)
+            {
+                curr_sec_ofs = 0;
+                curr_pageindex += 1;
+                if (curr_pageindex >= info->pages_per_block)
+                {
+                    curr_blockindex += 1;
+                    curr_pageindex = 0;
+                }
+            }
         }
     }
 
@@ -556,8 +688,9 @@ int NFC_PHY_LOWAPI_read(const MIO_NAND_INFO *info, unsigned int block_ofs, unsig
     return curr_blockindex;
 }
 
-int NFC_PHY_LOWAPI_erase(const MIO_NAND_INFO *info, unsigned int block_ofs, unsigned int block_cnt)
+int NFC_PHY_LOWAPI_erase(unsigned int block_ofs, unsigned int block_cnt)
 {
+    MIO_NAND_INFO *info = &low_api.nandinfo;
     unsigned char channel = info->channel;
     unsigned char phyway = info->phyway;
     unsigned int pages_per_block = info->pages_per_block;
@@ -574,7 +707,7 @@ int NFC_PHY_LOWAPI_erase(const MIO_NAND_INFO *info, unsigned int block_ofs, unsi
 
         row0 = curr_blockindex * pages_per_block;
 
-        DBG_PHY_LOWAPI("erase (blk:%4d)\n", curr_blockindex);
+        DBG_PHY_LOWAPI("erase (blk:%4d)", curr_blockindex);
 
         // erase block
         NFC_PHY_1stErase(channel, phyway, row0, -1, 0);
@@ -587,9 +720,12 @@ int NFC_PHY_LOWAPI_erase(const MIO_NAND_INFO *info, unsigned int block_ofs, unsi
         // if failed, go next block.
         if (NFC_PHY_StatusIsFAIL(status))
         {
+            DBG_PHY_LOWAPI("failed!\n");
             curr_blockindex += 1;
             continue;
         }
+
+        DBG_PHY_LOWAPI(" done\n");
 
         block_cnt -= 1;
         if (block_cnt)

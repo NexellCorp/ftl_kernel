@@ -1408,7 +1408,7 @@ unsigned int NFC_PHY_ScanFeature(unsigned int _scan_format)
 
     NAND * nand_config = (NAND *)&phy_features.nand_config;
 
-    NFC_PHY_ReadId(0, 0, id, onfi_id);
+    NFC_PHY_ReadId(0, 0, (char *)id, (char *)onfi_id);
 
     /**************************************************************************
      * Make Loose Nand Configurations
@@ -1419,7 +1419,7 @@ unsigned int NFC_PHY_ScanFeature(unsigned int _scan_format)
     nand_config->_f.onfi_detected = 0;
     nand_config->_f.onfi_timing_mode = 0;
 
-    nand_config->_f.timing.async.tClk  = __MHZ(10); // Hzz
+    nand_config->_f.timing.async.tClk  = __MHZ(10); // Hz
     nand_config->_f.timing.async.tRWC  = 100;       // ns
     nand_config->_f.timing.async.tR    = 200000;    // ns
     nand_config->_f.timing.async.tWB   = 200;       // ns

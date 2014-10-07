@@ -304,16 +304,27 @@ typedef struct __ExFTL__
     unsigned int (*fnIsReady)(void);
     unsigned int (*fnIsIdle)(void);
     unsigned int (*fnIsBusy)(void);
-    unsigned int (*fnIsTrimDone)(void);
-    unsigned int (*fnIsFlushDone)(void);
-    unsigned int (*fnIsBackgroundDone)(void);
-    unsigned int (*fnIsStandbyDone)(void);
-    unsigned int (*fnIsPowerDonwDone)(void);
 
     // Misc Method
     unsigned int (*fnSetTime)(void);
     WARN * (*fnGetWarnList)(void);
     int (*fnGetNandInfo)(NAND *info);
+
+#define BLOCK_TYPE_MAPLOG           (0x8)
+#define BLOCK_TYPE_FREE             (0x9)
+#define BLOCK_TYPE_DATA_HOT         (0x4)
+#define BLOCK_TYPE_DATA_HOT_BAD     (0x5)
+#define BLOCK_TYPE_DATA_COLD        (0x6)
+#define BLOCK_TYPE_DATA_COLD_BAD    (0x7)
+#define BLOCK_TYPE_UPDATE_SEQUENT   (0x2)
+#define BLOCK_TYPE_UPDATE_RANDOM    (0x3)
+#define BLOCK_TYPE_FBAD             (0xB)
+#define BLOCK_TYPE_IBAD             (0xA)
+#define BLOCK_TYPE_RBAD             (0xC)
+#define BLOCK_TYPE_ROOT             (0xD)
+#define BLOCK_TYPE_ENED             (0xE)
+#define BLOCK_TYPE_FIRM             (0xF)
+    unsigned int (*fnGetBlocksCount)(unsigned char _channel, unsigned char _way, unsigned int _1st_blocktype, ...);
 
     // Property
     unsigned int * Capacity;
@@ -412,6 +423,7 @@ typedef struct __ExNFC__
     int  (*fnEccInfoInit)(unsigned int _max_channels, unsigned int _max_ways, const unsigned char *_way_map);
     void (*fnEccInfoDeInit)(void);
 
+    void (*fnGetFeatures)(unsigned int * _max_channel, unsigned int * _max_way, void * _nand_config);
     void (*fnSetFeatures)(unsigned int _max_channel, unsigned int _max_way, void * _nand_config);
 
     void (*fnDelay)(unsigned int _tDelay);
@@ -529,6 +541,15 @@ typedef struct __ExDEBUG__
 
     struct
     {
+        unsigned int cp_data;
+        unsigned int cp_size;
+
+        unsigned char pattern[8192];
+
+    } misc_sub;
+
+    struct
+    {
         unsigned int format          : 1;
         unsigned int format_progress : 1;
         unsigned int configurations  : 1;
@@ -537,6 +558,7 @@ typedef struct __ExDEBUG__
         unsigned int boot            : 1;
         unsigned int boot_read_retry : 1;
         unsigned int read_retry      : 1;
+        unsigned int block_summary   : 1;
         unsigned int _rsvd0          : 16 - 8;
 
         // Error, Warnning
@@ -556,19 +578,24 @@ typedef struct __ExDEBUG__
 
         struct
         {
-            unsigned int operation           : 1;
+            unsigned int operation : 1;
+            unsigned int _rsvd0    : 8 - 1;
+
+            unsigned int read_data  : 1;
+            unsigned int write_data : 1;
+            unsigned int _rsvd1     : 8 - 2;
 
             unsigned int info_feature        : 1;
             unsigned int info_ecc            : 1;
             unsigned int info_ecc_correction : 1;
             unsigned int info_ecc_corrected  : 1;
             unsigned int info_randomizer     : 1;
-            unsigned int _rsvd0              : 16 - 8;
+            unsigned int _rsvd2              : 8 - 5;
 
             // Error, Warnning
             unsigned int warn_prohibited_block_access : 1;
             unsigned int warn_ecc_uncorrectable       : 1;
-            unsigned int _rsvd1                       : 16 - 2;
+            unsigned int _rsvd3                       : 8 - 2;
 
         } phy;
 
