@@ -22,15 +22,6 @@
 /******************************************************************************
  *
  ******************************************************************************/
-#define NAND_PHY_READRETRY_TYPE_MICRON_20NM 		    (1)
-
-#define NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE    (10)
-#define NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE   (11)
-#define NAND_PHY_READRETRY_TYPE_HYNIX_1xNM_MLC	        (20)
-
-/******************************************************************************
- *
- ******************************************************************************/
 #define NAND_PHY_HYNIX_READRETRY_TOTAL_CNT	    (12)
 #define NAND_PHY_HYNIX_READRETRY_REG_CNT	    (10)
 

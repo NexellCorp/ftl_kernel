@@ -89,7 +89,7 @@
     #define __BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__
 
     #define __COMPILE_MODE_FORMAT__
-    #define __COMPILE_MODE_HALT_ERROR__
+  //#define __COMPILE_MODE_HALT_ERROR__
 
 #endif
 

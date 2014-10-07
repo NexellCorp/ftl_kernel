@@ -81,6 +81,7 @@ unsigned int NFC_PHY_ConfigOnfi(unsigned char * _id, unsigned int _nand, void * 
     unsigned char block_indicator = 0;
     unsigned char multiplane_erase_type = 0;
     unsigned char read_retry_type = 0;
+    unsigned char support_randomize = 0;
 
     /**************************************************************************
      * ONFI Supporting Filter
@@ -126,6 +127,7 @@ unsigned int NFC_PHY_ConfigOnfi(unsigned char * _id, unsigned int _nand, void * 
                     block_indicator = 2;
                     multiplane_erase_type = 2;
                     read_retry_type = 0;
+                    support_randomize = 0;
 
                 } break;
 
@@ -136,7 +138,8 @@ unsigned int NFC_PHY_ConfigOnfi(unsigned char * _id, unsigned int _nand, void * 
                     paired_page_mapping = 3;
                     block_indicator = 2;
                     multiplane_erase_type = 2;
-                    read_retry_type = NAND_READRETRY_TYPE_MICRON_L83A;
+                    read_retry_type = NAND_READRETRY_TYPE_MICRON_20NM;
+                    support_randomize = 0;
 
                 } break;
 
@@ -147,7 +150,8 @@ unsigned int NFC_PHY_ConfigOnfi(unsigned char * _id, unsigned int _nand, void * 
                     paired_page_mapping = 3;
                     block_indicator = 2;
                     multiplane_erase_type = 2;
-                    read_retry_type = NAND_READRETRY_TYPE_MICRON_L84A;
+                    read_retry_type = NAND_READRETRY_TYPE_MICRON_20NM;
+                    support_randomize = 0;
 
                 } break;
 
@@ -158,7 +162,8 @@ unsigned int NFC_PHY_ConfigOnfi(unsigned char * _id, unsigned int _nand, void * 
                     paired_page_mapping = 3;
                     block_indicator = 2;
                     multiplane_erase_type = 2;
-                    read_retry_type = 0;
+                    read_retry_type = NAND_READRETRY_TYPE_MICRON_20NM;
+                    support_randomize = 0;
 
                 } break;
             }
@@ -529,6 +534,7 @@ unsigned int NFC_PHY_ConfigOnfi(unsigned char * _id, unsigned int _nand, void * 
     nand_config->_f.support_list.cache_read          = 0;   // must be '0'
     nand_config->_f.support_list.cache_write         = onfi_param->_f.optional_commands_supported.page_cache_program_command;
     nand_config->_f.support_list.interleave          = 0;   // must be '0'
+    nand_config->_f.support_list.randomize           = support_randomize;
 
     nand_config->_f.support_type.multiplane_read     = 0;   // must be '0'
     nand_config->_f.support_type.multiplane_write    = onfi_param->_f.features_supported.multi_plane_program_and_erase_operations ? 2 : 0;
@@ -781,6 +787,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.support_list.cache_read          = 0;
                     nand_config->_f.support_list.cache_write         = 1;
                     nand_config->_f.support_list.interleave          = 0;
+                    nand_config->_f.support_list.randomize           = 1;
 
                     nand_config->_f.support_type.multiplane_read     = 0;
                     nand_config->_f.support_type.multiplane_write    = 1;
@@ -914,6 +921,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.support_list.cache_read          = 0;
                     nand_config->_f.support_list.cache_write         = 1;
                     nand_config->_f.support_list.interleave          = 0;
+                    nand_config->_f.support_list.randomize           = 1;
 
                     nand_config->_f.support_type.multiplane_read     = 0;
                     nand_config->_f.support_type.multiplane_write    = 1;
@@ -1047,6 +1055,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.support_list.cache_read          = 0;
                     nand_config->_f.support_list.cache_write         = 1;
                     nand_config->_f.support_list.interleave          = 0;
+                    nand_config->_f.support_list.randomize           = 1;
 
                     nand_config->_f.support_type.multiplane_read     = 0;
                     nand_config->_f.support_type.multiplane_write    = 1;
@@ -1180,6 +1189,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.support_list.cache_read          = 0;
                     nand_config->_f.support_list.cache_write         = 1;
                     nand_config->_f.support_list.interleave          = 0;
+                    nand_config->_f.support_list.randomize           = 1;
 
                     nand_config->_f.support_type.multiplane_read     = 0;
                     nand_config->_f.support_type.multiplane_write    = 1;
@@ -1528,6 +1538,9 @@ unsigned int NFC_PHY_ScanFeature(unsigned int _scan_format)
         Exchange.std.__print("* - Eccbits Per Blockinformation : %d\n", nand_config->_f.eccbits_per_blockinformation);
         Exchange.std.__print("* - Block Endurance : %d\n", nand_config->_f.block_endurance);
         Exchange.std.__print("* - Factorybadblocks Per Nand : %d\n", nand_config->_f.factorybadblocks_per_nand);
+
+        Exchange.std.__print("*\n");
+        Exchange.std.__print("* - Randomize : %d\n", nand_config->_f.support_list.randomize);
 
         Exchange.std.__print("*\n");
         Exchange.std.__print("* - Multiplane Read %d\n", nand_config->_f.support_type.multiplane_read);

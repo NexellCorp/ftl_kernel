@@ -153,9 +153,9 @@ int NFC_PHY_LOWAPI_init(void)
     ret = 0;
     switch(nand_config->_f.support_type.read_retry)
     {
-        case NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
-        case NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
-        case NAND_PHY_READRETRY_TYPE_HYNIX_1xNM_MLC:
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
         {
             ret = NFC_PHY_HYNIX_READRETRY_Init(channels, ways, 0, nand_config->_f.support_type.read_retry);
             if (ret >= 0)
@@ -169,13 +169,17 @@ int NFC_PHY_LOWAPI_init(void)
         DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_init: error! HynixReadRetry!\n");
     }
 
-    ret = NFC_PHY_RAND_Init(nand_config->_f.maindatabytes_per_eccunit);
-    if (ret < 0)
+    if (nand_config->_f.support_list.randomize)
     {
-        DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_init: error! Randomize\n");
-        return -1;
+        ret = NFC_PHY_RAND_Init(nand_config->_f.maindatabytes_per_eccunit);
+        if (ret < 0)
+        {
+            DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_init: error! Randomize\n");
+            return -1;
+        }
+
+        NFC_PHY_RAND_Enable(1);
     }
-    NFC_PHY_RAND_Enable(1);
 
     if (ret >= 0)
     {
@@ -200,6 +204,8 @@ int NFC_PHY_LOWAPI_init(void)
 
 void NFC_PHY_LOWAPI_deinit(void)
 {
+    NAND * nand_config = (NAND *)&phy_features.nand_config;
+
     if (Exchange.ftl.fnIsBooted)
     {
         if (Exchange.ftl.fnIsBooted())
@@ -211,13 +217,16 @@ void NFC_PHY_LOWAPI_deinit(void)
 
     if (low_api.is_init)
     {
-        NFC_PHY_RAND_DeInit();
+        if (nand_config && nand_config->_f.support_list.randomize)
+        {
+            NFC_PHY_RAND_DeInit();
+        }
 
         switch(low_api.nandinfo.readretry_type)
         {
-            case NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
-            case NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
-            case NAND_PHY_READRETRY_TYPE_HYNIX_1xNM_MLC:
+            case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
+            case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
+            case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
             {
                 NFC_PHY_HYNIX_READRETRY_DeInit();
             } break;
@@ -525,12 +534,12 @@ int NFC_PHY_LOWAPI_read(unsigned int block_ofs, unsigned int page_ofs, unsigned 
 
     switch (readretry_type)
     {
-        case NAND_PHY_READRETRY_TYPE_MICRON_20NM:
+        case NAND_READRETRY_TYPE_MICRON_20NM:
         { max_retry_cnt = 8; } break;
 
-        case NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
-        case NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
-        case NAND_PHY_READRETRY_TYPE_HYNIX_1xNM_MLC:
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
         { max_retry_cnt = NFC_PHY_HYNIX_READRETRY_GetTotalReadRetryCount(channel, way); } break;
 
         default:
@@ -612,7 +621,7 @@ int NFC_PHY_LOWAPI_read(unsigned int block_ofs, unsigned int page_ofs, unsigned 
 
                         switch (readretry_type)
                         {
-                            case NAND_PHY_READRETRY_TYPE_MICRON_20NM:
+                            case NAND_READRETRY_TYPE_MICRON_20NM:
                             {
                                 unsigned char retry_opt = curr_retry_cnt & 0x07;
                                 if (retry_opt == 3)
@@ -624,9 +633,9 @@ int NFC_PHY_LOWAPI_read(unsigned int block_ofs, unsigned int page_ofs, unsigned 
 
                             } continue;
 
-                            case NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
-                            case NAND_PHY_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
-                            case NAND_PHY_READRETRY_TYPE_HYNIX_1xNM_MLC:
+                            case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
+                            case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
+                            case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
                             {
                                 DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_read: NFC_PHY_HYNIX_READRETRY_SetParameter()!\n");
                                 NFC_PHY_HYNIX_READRETRY_SetParameter(channel, phyway);
