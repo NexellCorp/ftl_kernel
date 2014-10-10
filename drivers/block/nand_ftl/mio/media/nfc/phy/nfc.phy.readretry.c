@@ -100,6 +100,13 @@ int NFC_PHY_HYNIX_READRETRY_Init(unsigned int _max_channels, unsigned int _max_w
     unsigned int size=0;
     unsigned int i=0;
 
+    Exchange.nfc.fnReadRetry_MakeRegAll = NFC_PHY_HYNIX_READRETRY_MakeRegAll;
+    Exchange.nfc.fnReadRetry_SetParameter = NFC_PHY_HYNIX_READRETRY_SetParameter;
+    Exchange.nfc.fnReadRetry_GetTotalReadRetryCount = NFC_PHY_HYNIX_READRETRY_GetTotalReadRetryCount;
+    Exchange.nfc.fnReadRetry_GetAddress = NFC_PHY_HYNIX_READRETRY_GetAddress;
+    Exchange.nfc.fnReadRetry_GetRegDataAddress = NFC_PHY_HYNIX_READRETRY_GetRegDataAddress;
+    Exchange.nfc.fnReadRetry_PrintTable = NFC_PHY_HYNIX_READRETRY_PrintTable;
+
     NFC_PHY_HYNIX_READRETRY_DeInit();
 
     hynix_readretry.readretry_type = _readretry_type;

@@ -42,6 +42,15 @@ static u8 * media_on_ram;
 /******************************************************************************
  *
  ******************************************************************************/
+void media_indicator_init(void);
+void media_indicator_io_busy(void);
+void media_indicator_io_idle(void);
+void media_indicator_bg_busy(void);
+void media_indicator_bg_idle(void);
+
+/******************************************************************************
+ *
+ ******************************************************************************/
 int media_open(void)
 {
     int capacity = -1;
@@ -79,6 +88,23 @@ int media_open(void)
     EXCHANGE_init();
 
     /**************************************************************************
+     * MIO Sys Options
+     **************************************************************************/
+    Exchange.sys.gpio.io_req = 32*2+0;  // Asign GPIOC.00
+    Exchange.sys.gpio.bg_job = 32*2+1;  // Asign GPIOC.01
+    Exchange.sys.gpio.nfc_wp = 32*2+27; // Asign GPIOC.27
+
+    Exchange.sys.support_list.led_indicator = 1;
+    Exchange.sys.support_list.spor = 1;
+
+    Exchange.sys.fnIndicatorIoBusy = media_indicator_io_busy;
+    Exchange.sys.fnIndicatorIoIdle = media_indicator_io_idle;
+    Exchange.sys.fnIndicatorBgBusy = media_indicator_bg_busy;
+    Exchange.sys.fnIndicatorBgIdle = media_indicator_bg_idle;
+
+    media_indicator_init();
+
+    /**************************************************************************
      * MIO Debug Options
      **************************************************************************/
   //Exchange.debug.misc.block = 1;
@@ -104,7 +130,7 @@ int media_open(void)
     Exchange.debug.nfc.phy.warn_ecc_uncorrectable = 1;
 
     /**************************************************************************
-     *
+     * Intial EWS FTL
      **************************************************************************/
 #if defined (__COMPILE_MODE_FORMAT__)
     DBG_MEDIA(KERN_INFO "media_open: Exchange.ftl.fnFormat()\n");
@@ -533,4 +559,37 @@ int media_is_idle(void * _io_state)
     }
 
     return 1;
+}
+
+/******************************************************************************
+ * LED Indicator
+ ******************************************************************************/
+extern int /* -1 = invalid gpio, 0 = gpio's input mode, 1 = gpio's output mode. */ nxp_soc_gpio_get_io_dir(unsigned int /* gpio pad number, 32*n + bit (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)*/);
+extern void nxp_soc_gpio_set_io_dir(unsigned int /* gpio pad number, 32*n + bit (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)*/, int /* '1' is output mode, '0' is input mode */);
+extern void nxp_soc_gpio_set_out_value(unsigned int /* gpio pad number, 32*n + bit (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)*/, int /* '1' is high level, '0' is low level */);
+
+void media_indicator_init(void)
+{
+    nxp_soc_gpio_set_io_dir(Exchange.sys.gpio.io_req, 1);
+    nxp_soc_gpio_set_io_dir(Exchange.sys.gpio.bg_job, 1);
+}
+
+void media_indicator_io_busy(void)
+{
+    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.io_req, 1);
+}
+
+void media_indicator_io_idle(void)
+{
+    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.io_req, 0);
+}
+
+void media_indicator_bg_busy(void)
+{
+    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.bg_job, 1);
+}
+
+void media_indicator_bg_idle(void)
+{
+    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.bg_job, 0);
 }

@@ -148,6 +148,8 @@ static int randomizer_page(int page, unsigned char *buffer, int size, unsigned c
  ******************************************************************************/
 int NFC_PHY_RAND_Init(int _buf_size)
 {
+    Exchange.nfc.fnRandomize_Enable = NFC_PHY_RAND_Enable;
+
     NFC_PHY_RAND_DeInit();
 
 #if defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__)

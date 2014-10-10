@@ -34,15 +34,6 @@
 static u_int mio_major = 0;
 
 /******************************************************************************
- * Indicator
- ******************************************************************************/
-void mio_indicator_init(void);
-void mio_indicator_io_busy(void);
-void mio_indicator_io_idle(void);
-void mio_indicator_bg_busy(void);
-void mio_indicator_bg_idle(void);
-
-/******************************************************************************
  * Block Device Operation
  ******************************************************************************/
 static int mio_bdev_open(struct block_device * _bdev, fmode_t _mode);
@@ -224,30 +215,30 @@ void mio_background(struct mio_state * _io_state)
     {
         io_state->background.e.flush = 0;
 
-      //mio_indicator_bg_busy();
+      //Exchange.sys.fnIndicatorBgBusy();
         media_flush(io_state);
         while (!media_is_idle(io_state));
-      //mio_indicator_bg_idle();
+      //Exchange.sys.fnIndicatorBgIdle();
     }
 
     if (io_state->background.e.standby)
     {
         io_state->background.e.standby = 0;
 
-      //mio_indicator_bg_busy();
+      //Exchange.sys.fnIndicatorBgBusy();
         media_standby(io_state);
         while (!media_is_idle(io_state));
-      //mio_indicator_bg_idle();
+      //Exchange.sys.fnIndicatorBgIdle();
     }
 
     if (io_state->background.e.bgjobs)
     {
         io_state->background.e.bgjobs = 0;
 
-      //mio_indicator_bg_busy();
-      //media_background(io_state);
-      //while (!media_is_idle(io_state));
-      //mio_indicator_bg_idle();
+      //Exchange.sys.fnIndicatorBgBusy();
+        media_background(io_state);
+        while (!media_is_idle(io_state));
+      //Exchange.sys.fnIndicatorBgIdle();
     }
 }
 
@@ -400,9 +391,9 @@ static int mio_transaction_thread(void * _arg)
                 spin_unlock_irq(rq->queue_lock);
                 mutex_lock(mlock);
                 {
-                    mio_indicator_bg_busy();
+                    Exchange.sys.fnIndicatorBgBusy();
                     media_super();
-                    mio_indicator_bg_idle();
+                    Exchange.sys.fnIndicatorBgIdle();
                 }
                 mutex_unlock(mlock);
                 spin_lock_irq(rq->queue_lock);
@@ -411,9 +402,9 @@ static int mio_transaction_thread(void * _arg)
             {
                 spin_unlock_irq(rq->queue_lock);
                 {
-                    mio_indicator_bg_busy();
+                    Exchange.sys.fnIndicatorBgBusy();
                     schedule();
-                    mio_indicator_bg_idle();
+                    Exchange.sys.fnIndicatorBgIdle();
                 }
                 spin_lock_irq(rq->queue_lock);
             }
@@ -430,7 +421,7 @@ static int mio_transaction_thread(void * _arg)
             if (io_state->transaction.wake.cnt) { io_state->transaction.wake.cnt -= 1; }
             io_state->transaction.wake.time = MIO_TIME_DIFF_MAX(get_jiffies_64());
 
-            mio_indicator_io_idle();
+            Exchange.sys.fnIndicatorIoIdle();
         }
         mutex_unlock(mlock);
         spin_lock_irq(rq->queue_lock);
@@ -461,7 +452,7 @@ static void mio_request_fetch(struct request_queue * _q)
     struct mio_state * io_state = _q->queuedata;
 
     // Wake Up Thread
-    mio_indicator_io_busy();
+    Exchange.sys.fnIndicatorIoBusy();
     io_state->transaction.wake.cnt += 1;
     io_state->transaction.wake.time = get_jiffies_64() + MIO_TIME_MSEC(10);
 
@@ -473,8 +464,6 @@ static void mio_request_fetch(struct request_queue * _q)
  ******************************************************************************/
 static int __init mio_init(void)
 {
-    mio_indicator_init();
-
     printk(KERN_INFO "mio.block:\n");
     printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
     printk(KERN_INFO "mio.block:  Module Init Start\n");
@@ -725,38 +714,3 @@ MODULE_LICENSE("EWS");
 MODULE_AUTHOR("SD.LEE");
 MODULE_DESCRIPTION("Media I/O Block Driver");
 MODULE_ALIAS_BLOCKDEV_MAJOR(mio_major);
-
-
-/******************************************************************************
- * LED Indicator
- ******************************************************************************/
-extern int /* -1 = invalid gpio, 0 = gpio's input mode, 1 = gpio's output mode. */ nxp_soc_gpio_get_io_dir(unsigned int /* gpio pad number, 32*n + bit (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)*/);
-extern void nxp_soc_gpio_set_io_dir(unsigned int /* gpio pad number, 32*n + bit (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)*/, int /* '1' is output mode, '0' is input mode */);
-extern void nxp_soc_gpio_set_out_value(unsigned int /* gpio pad number, 32*n + bit (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)*/, int /* '1' is high level, '0' is low level */);
-
-void mio_indicator_init(void)
-{
-    nxp_soc_gpio_set_io_dir(32*2+0, 1); // GPIOC0 set output mode
-    nxp_soc_gpio_set_io_dir(32*2+1, 1); // GPIOC1 set output mode
-}
-
-void mio_indicator_io_busy(void)
-{
-    nxp_soc_gpio_set_out_value(32*2+0, 1);
-}
-
-void mio_indicator_io_idle(void)
-{
-    nxp_soc_gpio_set_out_value(32*2+0, 0);
-}
-
-void mio_indicator_bg_busy(void)
-{
-    nxp_soc_gpio_set_out_value(32*2+1, 1);
-}
-
-void mio_indicator_bg_idle(void)
-{
-    nxp_soc_gpio_set_out_value(32*2+1, 0);
-}
-

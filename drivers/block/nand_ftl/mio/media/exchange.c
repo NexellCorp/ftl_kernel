@@ -75,16 +75,9 @@ extern void NFC_PHY_DeInit(void);
 
 extern int NFC_PHY_HYNIX_READRETRY_Init(unsigned int _max_channels, unsigned int _max_ways, const unsigned char *_way_map, unsigned char _readretry_type);
 extern void NFC_PHY_HYNIX_READRETRY_DeInit(void);
-extern int NFC_PHY_HYNIX_READRETRY_MakeRegAll(void);
-extern void NFC_PHY_HYNIX_READRETRY_SetParameter(unsigned int _channel, unsigned int _phyway);
-extern int NFC_PHY_HYNIX_READRETRY_GetTotalReadRetryCount(unsigned int _channel, unsigned int _way);
-extern void *NFC_PHY_HYNIX_READRETRY_GetAddress(void);
-extern void *NFC_PHY_HYNIX_READRETRY_GetRegDataAddress(unsigned int _channel, unsigned int _way);
-extern void NFC_PHY_HYNIX_READRETRY_PrintTable(void);
 
 extern int NFC_PHY_RAND_Init(int _buf_size);
 extern void NFC_PHY_RAND_DeInit(void);
-extern void NFC_PHY_RAND_Enable(unsigned char _enable);
 
 /******************************************************************************
  * Declaration
@@ -111,15 +104,21 @@ extern unsigned long nxp_ftl_start_block; /* byte address, Must Be Multiple of 8
  ******************************************************************************/
 void EXCHANGE_init(void)
 {
-	if (nxp_ftl_start_block & (_BLOCK_ALIGN_-1)) {
+    /**************************************************************************
+     * FTL Start Offset Must Be Multiple Of 8MB
+     **************************************************************************/
+	if (nxp_ftl_start_block & (_BLOCK_ALIGN_-1))
+    {
 		nxp_ftl_start_block = ALIGN(nxp_ftl_start_block, _BLOCK_ALIGN_);
 	}
 
-    // FTL Start Offset Must Be Multiple Of 8MB
     Exchange.ewsftl_start_offset  = nxp_ftl_start_block;
     Exchange.ewsftl_start_page    = 0;
     Exchange.ewsftl_start_block   = 0;
 
+    /**************************************************************************
+     * Asign Inital Exchages
+     **************************************************************************/
 #if defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__)
 
     Exchange.ftl.fnConfig = FTL_Configuration;
@@ -135,16 +134,9 @@ void EXCHANGE_init(void)
 
     Exchange.nfc.fnReadRetry_Init = NFC_PHY_HYNIX_READRETRY_Init;
     Exchange.nfc.fnReadRetry_DeInit = NFC_PHY_HYNIX_READRETRY_DeInit;
-    Exchange.nfc.fnReadRetry_MakeRegAll = NFC_PHY_HYNIX_READRETRY_MakeRegAll;
-    Exchange.nfc.fnReadRetry_SetParameter = NFC_PHY_HYNIX_READRETRY_SetParameter;
-    Exchange.nfc.fnReadRetry_GetTotalReadRetryCount = NFC_PHY_HYNIX_READRETRY_GetTotalReadRetryCount;
-    Exchange.nfc.fnReadRetry_GetAddress = NFC_PHY_HYNIX_READRETRY_GetAddress;
-    Exchange.nfc.fnReadRetry_GetRegDataAddress = NFC_PHY_HYNIX_READRETRY_GetRegDataAddress;
-    Exchange.nfc.fnReadRetry_PrintTable = NFC_PHY_HYNIX_READRETRY_PrintTable;
 
     Exchange.nfc.fnRandomize_Init = NFC_PHY_RAND_Init;
     Exchange.nfc.fnRandomize_DeInit = NFC_PHY_RAND_DeInit;
-    Exchange.nfc.fnRandomize_Enable = NFC_PHY_RAND_Enable;
 
     Exchange.std.__print = printk;
     Exchange.std.__sprintf = sprintf;
@@ -169,16 +161,9 @@ void EXCHANGE_init(void)
     
     Exchange.nfc.fnReadRetry_Init = NFC_PHY_HYNIX_READRETRY_Init;
     Exchange.nfc.fnReadRetry_DeInit = NFC_PHY_HYNIX_READRETRY_DeInit;
-    Exchange.nfc.fnReadRetry_MakeRegAll = NFC_PHY_HYNIX_READRETRY_MakeRegAll;
-    Exchange.nfc.fnReadRetry_SetParameter = NFC_PHY_HYNIX_READRETRY_SetParameter;
-    Exchange.nfc.fnReadRetry_GetTotalReadRetryCount = NFC_PHY_HYNIX_READRETRY_GetTotalReadRetryCount;
-    Exchange.nfc.fnReadRetry_GetAddress = NFC_PHY_HYNIX_READRETRY_GetAddress;
-    Exchange.nfc.fnReadRetry_GetRegDataAddress = NFC_PHY_HYNIX_READRETRY_GetRegDataAddress;
-    Exchange.nfc.fnReadRetry_PrintTable = NFC_PHY_HYNIX_READRETRY_PrintTable;
 
     Exchange.nfc.fnRandomize_Init = NFC_PHY_RAND_Init;
     Exchange.nfc.fnRandomize_DeInit = NFC_PHY_RAND_DeInit;
-    Exchange.nfc.fnRandomize_Enable = NFC_PHY_RAND_Enable;
 
     Exchange.std.__print = printf;
     Exchange.std.__sprintf = sprintf;

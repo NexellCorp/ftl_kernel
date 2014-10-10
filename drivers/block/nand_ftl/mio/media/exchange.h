@@ -519,10 +519,32 @@ typedef struct __ExSTD__
 #pragma pack(1)
 typedef struct __ExSYS__
 {
-    unsigned int lvd_detected;
-    unsigned int rst_detected;
+    struct
+    {
+        unsigned int io_req;
+        unsigned int bg_job;
+        unsigned int nfc_wp;
 
+    } gpio;
+
+    struct
+    {
+        unsigned int spor          : 1;
+        unsigned int led_indicator : 1;
+
+        unsigned int _rsvd0        : 32 -2;
+
+    } support_list;
+
+    // SPOR
+    unsigned int lvd_detected;
     void (*fnSpor)(void);
+
+    // Indicator
+    void (*fnIndicatorIoBusy)(void);
+    void (*fnIndicatorIoIdle)(void);
+    void (*fnIndicatorBgBusy)(void);
+    void (*fnIndicatorBgIdle)(void);
 
 } ExSYS;
 #pragma pack()

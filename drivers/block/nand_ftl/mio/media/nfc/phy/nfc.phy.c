@@ -629,38 +629,31 @@ extern int /* -1 = invalid gpio, 0 = gpio's input value is low level, alive inpu
 void NFC_PHY_SporInit(void)
 {
 #if defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__)
-    nxp_soc_gpio_set_io_dir(32*2+25, 0); // GPIO25 set input mode
-#elif defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
-    nxp_gpio_direction_output(CFG_IO_NAND_nWP, 1);
+    if (Exchange.sys.support_list.spor)
+    {
+    }
 #endif
 }
 
 void NFC_PHY_Spor(void)
 {
 #if defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__)
-    // LVD Monitor
-    if (!Exchange.sys.lvd_detected)
+    if (Exchange.sys.support_list.spor)
     {
-        if (0 /* LVD Detect Logic */)
+        // LVD Monitor
+        if (!Exchange.sys.lvd_detected)
         {
-            Exchange.sys.lvd_detected = 1;
+            if (0 /* LVD Detect Logic */)
+            {
+                Exchange.sys.lvd_detected = 1;
+            }
         }
-    }
 
-    // SRST or HRST Monitor
-    if (!Exchange.sys.rst_detected)
-    {
-        if (0 /* == nxp_soc_gpio_get_in_value(32*2+25) */)
+        // Write Protecting
+        if (Exchange.sys.lvd_detected)
         {
-            // If RSTN is detected, Can't reverse during system POR time
-            Exchange.sys.rst_detected = 1;
+            NFC_PHY_WriteProtect(1);
         }
-    }
-
-    // Write Protecting
-    if (Exchange.sys.rst_detected || Exchange.sys.lvd_detected)
-    {
-        NFC_PHY_WriteProtect(1);
     }
 #endif
 }
@@ -668,18 +661,21 @@ void NFC_PHY_Spor(void)
 void NFC_PHY_WriteProtect(unsigned int _wp_enable)
 {
 #if defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__)
-    // NAND Write Protect : GPIOC27
-    unsigned int io_port = 32*2+27;
-    int io_dir = nxp_soc_gpio_get_io_dir(io_port);
+    // NAND WP direction check
+    {
+        int io_dir = 0;
 
-    if (io_dir < 0)
-    {
-        __print("NFC_PHY_WriteProtect(Warning) : Invalid Write Protect Port Number !\n");
-        return;
-    }
-    else if (1 != io_dir)
-    {
-        nxp_soc_gpio_set_io_dir(io_port, 1); // set output mode
+        io_dir = nxp_soc_gpio_get_io_dir(Exchange.sys.gpio.nfc_wp);
+
+        if (io_dir < 0)
+        {
+            __print("NFC_PHY_WriteProtect(Warning) : Invalid Write Protect Port Number !\n");
+            return;
+        }
+        else if (1 != io_dir)
+        {
+            nxp_soc_gpio_set_io_dir(Exchange.sys.gpio.nfc_wp, 1); // set output mode
+        }
     }
 
     // NAND WP is Active Low
@@ -688,15 +684,23 @@ void NFC_PHY_WriteProtect(unsigned int _wp_enable)
         // Issue Writable
         case 0:
         {
-            if (Exchange.sys.rst_detected || Exchange.sys.lvd_detected)
+            if (Exchange.sys.support_list.spor)
             {
-                __print("NFC_PHY_WriteProtect(Warning) : NAND Write Protected Forcibly !!! (Detected RSTN)\n");
-                nxp_soc_gpio_set_out_value(io_port, 0);
+                if (Exchange.sys.lvd_detected)
+                {
+                    __print("NFC_PHY_WriteProtect(Warning) : NAND Write Protected Forcibly !!! (Detected RSTN)\n");
+                    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.nfc_wp, 0);
+                }
+                else
+                {
+                    // Writable
+                    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.nfc_wp, 1);
+                }
             }
             else
             {
                 // Writable
-                nxp_soc_gpio_set_out_value(io_port, 1);
+                nxp_soc_gpio_set_out_value(Exchange.sys.gpio.nfc_wp, 1);
             }
 
         } break;
@@ -705,7 +709,7 @@ void NFC_PHY_WriteProtect(unsigned int _wp_enable)
         case 1:
         {
             // Write Protected
-            nxp_soc_gpio_set_out_value(io_port, 0);
+            nxp_soc_gpio_set_out_value(Exchange.sys.gpio.nfc_wp, 0);
 
         } break;
 
@@ -716,38 +720,15 @@ void NFC_PHY_WriteProtect(unsigned int _wp_enable)
         } break;
     }
 #elif defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
+    // NAND WP direction Out
+    nxp_gpio_direction_output(CFG_IO_NAND_nWP, 1);
+
     // NAND WP is Active Low
     switch (_wp_enable)
     {
-        // Issue Writable
-        case 0:
-        {
-            if (Exchange.sys.rst_detected || Exchange.sys.lvd_detected)
-            {
-                __print("NFC_PHY_WriteProtect(Warning) : NAND Write Protected Forcibly !!! (Detected RSTN)\n");
-                nxp_gpio_set_value(CFG_IO_NAND_nWP, 0);
-            }
-            else
-            {
-                // Writable
-                nxp_gpio_set_value(CFG_IO_NAND_nWP, 1);
-            }
-
-        } break;
-
-        // Issue Write Protecting
-        case 1:
-        {
-            // Write Protected
-            nxp_gpio_set_value(CFG_IO_NAND_nWP, 0);
-
-        } break;
-
-        default:
-        {
-            __print("NFC_PHY_WriteProtect(Warning) : Invaild Function Parameter - 0 : disable, 1 : enable\n");
-
-        } break;
+        case 0:  { nxp_gpio_set_value(CFG_IO_NAND_nWP, 1); } break; // Writable
+        case 1:  { nxp_gpio_set_value(CFG_IO_NAND_nWP, 0); } break; // Write Protected
+        default: { __print("NFC_PHY_WriteProtect(Warning) : Invaild Function Parameter - 0 : disable, 1 : enable\n"); } break;
     }
 #endif
 }
