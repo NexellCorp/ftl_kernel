@@ -189,16 +189,16 @@ void media_write(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_s
 #if defined (__MEDIA_ON_RAM__)
     memcpy(media_on_ram + lba * __SECTOR_SIZEOF(1), buffer, seccnt * __SECTOR_SIZEOF(1));
 #elif defined (__MEDIA_ON_NAND__)
-    int wcidxpar = 0;
+    int wcidxfar = 0;
     int wcidx = 0;
 
     // Test Put Command To FTL
     while (1)
     {
-        wcidxpar = Exchange.ftl.fnPrePutCommand(IO_CMD_WRITE, 0, lba, seccnt);
-        wcidx = wcidxpar & (*Exchange.buffer.SectorsOfWriteCache - 1);
+        wcidxfar = Exchange.ftl.fnPrePutCommand(IO_CMD_WRITE, 0, lba, seccnt);
+        wcidx = wcidxfar & (*Exchange.buffer.SectorsOfWriteCache - 1);
 
-        if (-1 == wcidxpar)
+        if (-1 == wcidxfar)
         {
             Exchange.ftl.fnMain();
         }
@@ -209,7 +209,7 @@ void media_write(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_s
     }
 
     // Adjust Write Index
-    *Exchange.buffer.WriteBlkIdx = (unsigned int)wcidxpar;
+    *Exchange.buffer.WriteBlkIdx = (unsigned int)wcidxfar;
 
     // Copy buffer to WCache
     {
@@ -277,14 +277,14 @@ void media_read(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_st
 #if defined (__MEDIA_ON_RAM__)
     memcpy(buffer, media_on_ram + lba * __SECTOR_SIZEOF(1), seccnt * __SECTOR_SIZEOF(1));
 #elif defined (__MEDIA_ON_NAND__)
-    int rbidxpar = 0;
+    int rbidxfar = 0;
 
     // Test Put Command to FTL
     while (1)
     {
-        rbidxpar = Exchange.ftl.fnPrePutCommand(IO_CMD_READ, 0, lba, seccnt);
+        rbidxfar = Exchange.ftl.fnPrePutCommand(IO_CMD_READ, 0, lba, seccnt);
 
-        if (-1 == rbidxpar)
+        if (-1 == rbidxfar)
         {
             Exchange.ftl.fnMain();
         }
@@ -295,7 +295,7 @@ void media_read(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_st
     }
 
     // Adjust Read Index
-    *Exchange.buffer.ReadBlkIdx = (unsigned int)rbidxpar;
+    *Exchange.buffer.ReadBlkIdx = (unsigned int)rbidxfar;
 
     // Put Command to FTL
     Exchange.ftl.fnPutCommand(IO_CMD_READ, 0, lba, seccnt);
@@ -311,7 +311,7 @@ void media_read(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_st
         unsigned int rbidx  = 0;
         unsigned int readed = 0;
 
-        rbidx  = *Exchange.buffer.ReadBlkIdx & (*Exchange.buffer.SectorsOfReadBuffer - 1);;
+        rbidx  = *Exchange.buffer.ReadBlkIdx & (*Exchange.buffer.SectorsOfReadBuffer - 1);
         readed = Exchange.buffer.fnGetRequestReadSeccnt();
 
         if (readed)
@@ -457,14 +457,7 @@ void media_read(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_st
         }
     }
 
-    {
-        unsigned int super_loop = 40;
-
-        for (; super_loop; super_loop--)
-        {
-            Exchange.ftl.fnMain();
-        }
-    }
+	Exchange.ftl.fnMain();
 #endif
 }
 
