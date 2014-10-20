@@ -118,16 +118,20 @@ int media_open(void)
     Exchange.debug.ftl.boot = 1;
     Exchange.debug.ftl.block_summary = 1;
     Exchange.debug.ftl.error = 1;
+  //Exchange.debug.ftl.boot_read_retry = 1;
+  //Exchange.debug.ftl.read_retry = 1;
 
   //Exchange.debug.nfc.sche.operation = 1;
 
   //Exchange.debug.nfc.phy.operation = 1;
-  //Exchange.debug.nfc.phy.info_feature = 1;
+    Exchange.debug.nfc.phy.info_feature = 1;
   //Exchange.debug.nfc.phy.info_ecc = 1;
   //Exchange.debug.nfc.phy.info_ecc_correction = 1;
   //Exchange.debug.nfc.phy.info_ecc_corrected = 1;
     Exchange.debug.nfc.phy.warn_prohibited_block_access = 1;
     Exchange.debug.nfc.phy.warn_ecc_uncorrectable = 1;
+    Exchange.debug.nfc.phy.warn_ecc_uncorrectable_show = 1;
+    Exchange.debug.nfc.phy.err_ecc_uncorrectable = 1;
 
     /**************************************************************************
      * Intial EWS FTL
@@ -306,6 +310,7 @@ void media_read(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_st
     Exchange.statistics.ios.accumulate.read += (seccnt << 9);
     Exchange.statistics.ios.accumulate.read_seccnt += seccnt;
 
+    // Copy DATA From "FTL Read Buffer" to "BIO Read Buffer"
     while (1)
     {
         unsigned int rbidx  = 0;
@@ -457,7 +462,7 @@ void media_read(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_st
         }
     }
 
-	Exchange.ftl.fnMain();
+    Exchange.ftl.fnMain();
 #endif
 }
 

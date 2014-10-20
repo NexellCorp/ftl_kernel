@@ -437,22 +437,66 @@ int NFC_PHY_EccDecoderGetErrorLocation(unsigned int * _errorlocationbuffer, unsi
     return __NROOT(nfcI->nfeccstatus & __POW(0x7F,NFECCSTATUS_NUMERR),NFECCSTATUS_NUMERR);
 }
 
-void NFC_PHY_EccCorrection(char         * _error_at,
-                           unsigned int   _row,
-                           unsigned int   _col,
-                           char         * _read_buffer,
-                           unsigned int   _bytes_per_ecc,
-                           unsigned int   _ecc_bits,
-                           char         * _parity_buffer,
-                           unsigned int   _bytes_per_parity,
-                           char         * _error_location_buffer,
-                           unsigned int * _report_ecc_correct_bit,
-                           unsigned int * _report_ecc_correct_sector,
-                           unsigned int * _report_ecc_max_correct_bit,
-                           unsigned int * _report_ecc_level,
-                           unsigned int * _report_ecc_level_error,
-                           unsigned int * _report_ecc_error)
+void NFC_PHY_ShowUncorrectedData(unsigned int _tried,
+                                 unsigned int _row, unsigned int _col,
+                                 char * _read_buffer,   unsigned int _bytes_per_ecc, unsigned int _ecc_bits,
+                                 char * _parity_buffer, unsigned int _bytes_per_parity)
 {
+    int i = 0;
+    int j = 0;
+
+    unsigned int   tried = _tried;
+    unsigned int   row = _row;
+    unsigned int   col = _col;
+    char         * read_buffer = _read_buffer;
+    unsigned int   bytes_per_ecc = _bytes_per_ecc;
+    unsigned int   ecc_bits = _ecc_bits;
+    char         * parity_buffer = _parity_buffer;
+    unsigned int   bytes_per_parity = _bytes_per_parity;
+
+    __print("\n");
+    __print(" Data/Parity Address: row(%04d), col(%04d), paritycol(%04d) : Try #%d\n", row, col, col+bytes_per_ecc, tried);
+    __print("  ------------------------------------------------------------------------------\n");
+    __print("  Data : bytes_per_ecc(%d) ecc_bits(%d)\n", bytes_per_ecc, ecc_bits);
+
+    for (i = 0; i < bytes_per_ecc/16; i++)
+    {
+        __print("  ");
+        for (j = 0; j < 16; j++)
+        {
+            __print("%02x ", read_buffer[i * 16 + j]);
+        }   __print("\n");
+    }
+
+    __print("\n");
+    __print("  Parity : bytes_per_parity(%d)\n", bytes_per_parity);
+
+    __print("  ");
+    for (i = 0; i < bytes_per_parity; i++)
+    {
+        __print("%02x ", parity_buffer[i]);
+    }   __print("\n");
+    __print("  ------------------------------------------------------------------------------\n");
+}
+
+unsigned int NFC_PHY_EccCorrection(char         * _error_at,
+                                   unsigned int   _row,
+                                   unsigned int   _col,
+                                   char         * _read_buffer,
+                                   unsigned int   _bytes_per_ecc,
+                                   unsigned int   _ecc_bits,
+                                   char         * _parity_buffer,
+                                   unsigned int   _bytes_per_parity,
+                                   char         * _error_location_buffer,
+                                   unsigned int * _report_ecc_correct_bit,
+                                   unsigned int * _report_ecc_correct_sector,
+                                   unsigned int * _report_ecc_max_correct_bit,
+                                   unsigned int * _report_ecc_level,
+                                   unsigned int * _report_ecc_level_error,
+                                   unsigned int * _report_ecc_error)
+{
+    unsigned int   uncorrected = 0;
+
     char         * error_at = _error_at;
     unsigned int   row = _row;
     unsigned int   col = _col;
@@ -467,7 +511,7 @@ void NFC_PHY_EccCorrection(char         * _error_at,
     unsigned int * report_ecc_max_correct_bit = _report_ecc_max_correct_bit;
     unsigned int * report_ecc_level = _report_ecc_level;
     unsigned int * report_ecc_level_error = _report_ecc_level_error;
-    unsigned int * report_ecc_error = _report_ecc_error;
+  //unsigned int * report_ecc_error = _report_ecc_error;
 
     unsigned int read_loop = 0;
     unsigned int * location = __NULL;
@@ -486,7 +530,7 @@ void NFC_PHY_EccCorrection(char         * _error_at,
         unsigned int *puiMyData = (unsigned int *)read_buffer;
         unsigned int uiMyDataLen = bytes_per_ecc;
         unsigned int uiMyParityLen = bytes_per_parity;
-    
+
         if (read_loop > ((uiMyParityLen * 95) / 100))    // 95% are 0xFF
         {
             __print("nfc.phy: NFC_PHY_2ndReadLog: this page may have been erased. read_loop:%d / %d \n"read_loop, uiMyParityLen);
@@ -572,19 +616,15 @@ void NFC_PHY_EccCorrection(char         * _error_at,
         // Uncorrectable
         else
         {
-            *report_ecc_error += 1;
-
-            if (Exchange.debug.nfc.phy.warn_ecc_uncorrectable)
-            {
-                __print("%s\n", error_at);
-                __print("Un-Correctable: row(%04d),col(%04d)\n", row, col);
-            }
+            uncorrected = 1;
         }
     }
     else
     {
         memset((void *)read_buffer, 0xff, bytes_per_ecc);
     }
+
+    return uncorrected;
 }
 
 /******************************************************************************
@@ -809,7 +849,7 @@ unsigned int NFC_PHY_Init(unsigned int _scan_format)
 #endif
 
     NFC_PHY_DeInit();
-    
+
     NFC_PHY_ChipSelect(0, 0, __FALSE);
     NFC_PHY_ChipSelect(0, 1, __FALSE);
 
@@ -970,7 +1010,7 @@ int NFC_PHY_EccInfoInit(unsigned int _max_channel, unsigned int _max_way, const 
             if (NfcEccStatus.level_error[way] && NfcEccStatus.error[way] && NfcEccStatus.correct_sector[way] && NfcEccStatus.correct_bit[way] && NfcEccStatus.max_correct_bit[way])
             {
                 NfcEccStatus.max_channels = max_channels;
-                
+
                 memset((void *)(NfcEccStatus.level_error[way]), 0x00, size);
                 memset((void *)(NfcEccStatus.error[way]), 0x00, size);
                 memset((void *)(NfcEccStatus.correct_sector[way]), 0x00, size);
@@ -983,7 +1023,7 @@ int NFC_PHY_EccInfoInit(unsigned int _max_channel, unsigned int _max_way, const 
                 resp = -1;
             }
         }
-        
+
     }
     else
     {
@@ -1090,7 +1130,7 @@ void NFC_PHY_EccInfoDeInit(void)
 #endif
         NfcEccStatus.correct_sector = 0;
     }
-    
+
     // correct_bit
     if (NfcEccStatus.correct_bit)
     {
@@ -1117,7 +1157,7 @@ void NFC_PHY_EccInfoDeInit(void)
 #endif
         NfcEccStatus.correct_bit = 0;
     }
-    
+
     // max_correct_bit
     if (NfcEccStatus.max_correct_bit)
     {
@@ -1312,7 +1352,7 @@ void NFC_PHY_SetFeatures(unsigned int _max_channel, unsigned int _max_way, void 
             __print(" tFEAT: %u -> %u\n", tFEAT, NfcTime.tFEAT);
         }
 
-        nclk = 1000000000/(clkhz/1000);	// convert to pico second
+        nclk = 1000000000/(clkhz/1000); // convert to pico second
 
         // timing calculation
         tRCS = (tCEA - tREA) / nclk;                                                                // (tCEA-tREA)/nclk
@@ -1756,7 +1796,7 @@ void NFC_PHY_GetOnfiParameter(unsigned int _channel, unsigned int _way, unsigned
 
                             } break;
 
-                            case 2: 
+                            case 2:
                             {
                                 unsigned char * it_buffer = read_parameter;
 
@@ -1977,7 +2017,7 @@ int NFC_PHY_2ndRandomReadDataNoEcc(unsigned int _channel,
     unsigned int bytes_to_read = _bytes_to_read;
     char * data_buffer = _data_buffer;
     char * data = data_buffer;
-    
+
     unsigned int read_loop = 0;
 
     /**************************************************************************
@@ -2024,13 +2064,16 @@ int NFC_PHY_2ndReadLog(unsigned int _channel,
                        unsigned int _bytes_per_data_ecc,
                        unsigned int _bytes_per_data_parity,
                        unsigned int _data_ecc_bits,
-                       void * _data_buffer)
+                       void * _data_buffer,
+                       /* etc */
+                       unsigned int _retryable)
 {
     unsigned int channel = _channel;
     unsigned int way = _way;
     unsigned int row = _row;
     unsigned int col = _col;
     unsigned int paritycol = 0;
+    unsigned int retryable = _retryable;
 
     /* LOG */
     unsigned int log_loop = 0;
@@ -2041,7 +2084,7 @@ int NFC_PHY_2ndReadLog(unsigned int _channel,
     char * log_buffer = (char *)_log_buffer;
     char * log = log_buffer;
     char * log_parity_buffer = (char *)__parity_buffer0;
-    char * log_fake_buffer = (char *)__fake_buffer0;
+  //char * log_fake_buffer = (char *)__fake_buffer0;
     char * log_error_location_buffer = (char *)__error_location_buffer0;
 
     /* MAP DATA */
@@ -2053,7 +2096,7 @@ int NFC_PHY_2ndReadLog(unsigned int _channel,
     char * data_buffer = (char *)_data_buffer;
     char * data = data_buffer;
     char * data_parity_buffer = (char *)__parity_buffer1;
-    char * data_fake_buffer = (char *)__fake_buffer1;
+  //char * data_fake_buffer = (char *)__fake_buffer1;
     char * data_error_location_buffer = (char *)__error_location_buffer1;
 
     /* MISC */
@@ -2064,6 +2107,24 @@ int NFC_PHY_2ndReadLog(unsigned int _channel,
     char * cur_read = __NULL;
 
     unsigned int ecc_error_detected = 0;
+    unsigned int ecc_uncorrected = 0;
+    unsigned int ecc_uncorrected_retry = 0;
+
+    unsigned int report_ecc[6] = {0,};
+
+    unsigned int * report_ecc_correct_bit = &(NfcEccStatus.correct_bit[way][channel]);
+    unsigned int * report_ecc_correct_sector = &(NfcEccStatus.correct_sector[way][channel]);
+    unsigned int * report_ecc_max_correct_bit = &(NfcEccStatus.max_correct_bit[way][channel]);
+    unsigned int * report_ecc_level = Exchange.nfc.ecc.level0;
+    unsigned int * report_ecc_level_error = &(NfcEccStatus.level_error[way][channel]);
+    unsigned int * report_ecc_error = &(NfcEccStatus.error[way][channel]);
+
+    if (!report_ecc_correct_bit) { report_ecc_correct_bit = &report_ecc[0]; }
+    if (!report_ecc_correct_sector) { report_ecc_correct_sector = &report_ecc[1]; }
+    if (!report_ecc_max_correct_bit) { report_ecc_max_correct_bit = &report_ecc[2]; }
+    if (!report_ecc_level) { report_ecc_level = &report_ecc[3]; }
+    if (!report_ecc_level_error) { report_ecc_level_error = &report_ecc[4]; }
+    if (!report_ecc_error) { report_ecc_error = &report_ecc[5]; }
 
     /**************************************************************************
      *
@@ -2092,90 +2153,113 @@ int NFC_PHY_2ndReadLog(unsigned int _channel,
         for (log_loop = 0; log_loop <= log_loop_count; log_loop++)
         {
             cur_read = log;
+            ecc_uncorrected_retry = 0;
 
-            memset((void *)log_parity_buffer, 0, bytes_per_log_parity);
-            memset((void *)log_fake_buffer, 0, bytes_per_log_ecc);
-            memset((void *)log_error_location_buffer, 0, log_ecc_bits*sizeof(unsigned int));
-
-            /******************************************************************
-             * Read Parity
-             ******************************************************************/
-            parity = log_parity_buffer;
-            paritycol = col + bytes_per_log_ecc;
-
-            NFC_PHY_tDelay(NfcTime.tRHW);
-            NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
-            NFC_PHY_Addr(__NROOT(paritycol&0x000000FF,0));
-            NFC_PHY_Addr(__NROOT(paritycol&0x0000FF00,8));
-            NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
-            NFC_PHY_tDelay(NfcTime.tCCS);
-
-            for (read_loop = 0; read_loop < bytes_per_log_parity; read_loop++)
+            do
             {
-                *parity++ = NFC_PHY_RData();
+                log = cur_read;
+                ecc_error_detected = 0;
+                ecc_uncorrected = 0;
+
+                /**************************************************************
+                 * Zero Initial
+                 **************************************************************/
+              //memset((void *)log_parity_buffer, 0, bytes_per_log_parity);
+              //memset((void *)log_fake_buffer, 0, bytes_per_log_ecc);
+              //memset((void *)log_error_location_buffer, 0, log_ecc_bits*sizeof(unsigned int));
+
+                /**************************************************************
+                 * Read Parity
+                 **************************************************************/
+                parity = log_parity_buffer;
+                paritycol = col + bytes_per_log_ecc;
+
+                NFC_PHY_tDelay(NfcTime.tRHW);
+                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
+                NFC_PHY_Addr(__NROOT(paritycol&0x000000FF,0));
+                NFC_PHY_Addr(__NROOT(paritycol&0x0000FF00,8));
+                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
+                NFC_PHY_tDelay(NfcTime.tCCS);
+
+                for (read_loop = 0; read_loop < bytes_per_log_parity; read_loop++)
+                {
+                    *parity++ = NFC_PHY_RData();
+                }
+
+                NFC_PHY_RAND_Randomize((void*)log_parity_buffer, bytes_per_log_parity, 0);
+
+                /**************************************************************
+                 * Read Data
+                 **************************************************************/
+                NFC_PHY_tDelay(NfcTime.tRHW);
+                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
+                NFC_PHY_Addr(__NROOT(col&0x000000FF,0));
+                NFC_PHY_Addr(__NROOT(col&0x0000FF00,8));
+                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
+                NFC_PHY_tDelay(NfcTime.tCCS);
+
+                NFC_PHY_EccDecoderReset(bytes_per_log_ecc, log_ecc_bits);
+                NFC_PHY_EccDecoderSetOrg((unsigned int *)log_parity_buffer, log_ecc_bits);
+                NFC_PHY_EccDecoderEnable(bytes_per_log_ecc, log_ecc_bits);
+
+                // Read Data From NAND Flash
+                for (read_loop = 0; read_loop < bytes_per_log_ecc; read_loop++)
+                {
+                    *log++ = NFC_PHY_RData();
+                }
+
+                /**************************************************************
+                 * ECC Correction
+                 **************************************************************/
+                NFC_PHY_EccDecoderWaitDone();
+                ecc_error_detected = NFC_PHY_EccDecoderHasError();
+
+                if (ecc_error_detected)
+                {
+                    ecc_uncorrected = NFC_PHY_EccCorrection("@ 2ndReadLog:Log",
+                                                            row,
+                                                            col,
+                                                            cur_read,
+                                                            bytes_per_log_ecc,
+                                                            log_ecc_bits,
+                                                            log_parity_buffer,
+                                                            bytes_per_log_parity,
+                                                            log_error_location_buffer,
+                                                            report_ecc_correct_bit,
+                                                            report_ecc_correct_sector,
+                                                            report_ecc_max_correct_bit,
+                                                            report_ecc_level,
+                                                            report_ecc_level_error,
+                                                            report_ecc_error);
+                }
+
+                if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable_show)
+                {
+                    if ((ecc_error_detected && (ecc_uncorrected || ecc_uncorrected_retry)) || (!ecc_error_detected && ecc_uncorrected_retry))
+                    {
+                        NFC_PHY_ShowUncorrectedData(ecc_uncorrected_retry, row, col, cur_read, bytes_per_log_ecc, log_ecc_bits, log_parity_buffer, bytes_per_log_parity);
+                    }
+                }
+
+                ecc_uncorrected_retry += ecc_uncorrected;
+
+            } while (ecc_error_detected && ecc_uncorrected && (ecc_uncorrected_retry < 2));
+
+            if (ecc_uncorrected)
+            {
+                *report_ecc_error += 1;
+
+                if (!retryable && Exchange.debug.nfc.phy.err_ecc_uncorrectable)
+                {
+                    __print("@ 2ndReadLog:Log:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
+                }
             }
-
-            NFC_PHY_RAND_Randomize((void*)log_parity_buffer, bytes_per_log_parity, 0);
-
-            /******************************************************************
-             * Read Data
-             ******************************************************************/
-            NFC_PHY_tDelay(NfcTime.tRHW);
-            NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
-            NFC_PHY_Addr(__NROOT(col&0x000000FF,0));
-            NFC_PHY_Addr(__NROOT(col&0x0000FF00,8));
-            NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
-            NFC_PHY_tDelay(NfcTime.tCCS);
-
-            NFC_PHY_EccDecoderReset(bytes_per_log_ecc, log_ecc_bits);
-            NFC_PHY_EccDecoderSetOrg((unsigned int *)log_parity_buffer, log_ecc_bits);
-            NFC_PHY_EccDecoderEnable(bytes_per_log_ecc, log_ecc_bits);
-
-            // Read Data From NAND Flash
-            for (read_loop = 0; read_loop < bytes_per_log_ecc; read_loop++)
+            else
             {
-                *log++ = NFC_PHY_RData();
-            }
-
-            /******************************************************************
-             * ECC Correction
-             ******************************************************************/
-            NFC_PHY_EccDecoderWaitDone();
-            ecc_error_detected = NFC_PHY_EccDecoderHasError();
-
-            if (ecc_error_detected)
-            {
-                unsigned int report_ecc[6] = {0,};
-
-                unsigned int * report_ecc_correct_bit = &(NfcEccStatus.correct_bit[way][channel]);
-                unsigned int * report_ecc_correct_sector = &(NfcEccStatus.correct_sector[way][channel]);
-                unsigned int * report_ecc_max_correct_bit = &(NfcEccStatus.max_correct_bit[way][channel]);
-                unsigned int * report_ecc_level = Exchange.nfc.ecc.level0;
-                unsigned int * report_ecc_level_error = &(NfcEccStatus.level_error[way][channel]);
-                unsigned int * report_ecc_error = &(NfcEccStatus.error[way][channel]);
-
-                if (!report_ecc_correct_bit) { report_ecc_correct_bit = &report_ecc[0]; }
-                if (!report_ecc_correct_sector) { report_ecc_correct_sector = &report_ecc[1]; }
-                if (!report_ecc_max_correct_bit) { report_ecc_max_correct_bit = &report_ecc[2]; }
-                if (!report_ecc_level) { report_ecc_level = &report_ecc[3]; }
-                if (!report_ecc_level_error) { report_ecc_level_error = &report_ecc[4]; }
-                if (!report_ecc_error) { report_ecc_error = &report_ecc[5]; }
-
-                NFC_PHY_EccCorrection("@ 2ndReadLog:Log",
-                                      row,
-                                      col,
-                                      cur_read,
-                                      bytes_per_log_ecc,
-                                      log_ecc_bits,
-                                      log_parity_buffer,
-                                      bytes_per_log_parity,
-                                      log_error_location_buffer,
-                                      report_ecc_correct_bit,
-                                      report_ecc_correct_sector,
-                                      report_ecc_max_correct_bit,
-                                      report_ecc_level,
-                                      report_ecc_level_error,
-                                      report_ecc_error);
+                if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable && ecc_uncorrected_retry)
+                {
+                    __print("@ 2ndReadLog:Log:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
+                }
             }
 
             NFC_PHY_RAND_Randomize((void*)cur_read, bytes_per_log_ecc, 0);
@@ -2191,90 +2275,113 @@ int NFC_PHY_2ndReadLog(unsigned int _channel,
         for (data_loop = 0; data_loop <= data_loop_count; data_loop++)
         {
             cur_read = data;
+            ecc_uncorrected_retry = 0;
 
-            memset((void *)data_parity_buffer, 0, bytes_per_data_parity);
-            memset((void *)data_fake_buffer, 0, bytes_per_data_ecc);
-            memset((void *)data_error_location_buffer, 0, data_ecc_bits*sizeof(unsigned int));
-
-            /******************************************************************
-             * Read Parity
-             ******************************************************************/
-            parity = data_parity_buffer;
-            paritycol = col + bytes_per_data_ecc;
-
-            NFC_PHY_tDelay(NfcTime.tRHW);
-            NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
-            NFC_PHY_Addr(__NROOT(paritycol&0x000000FF,0));
-            NFC_PHY_Addr(__NROOT(paritycol&0x0000FF00,8));
-            NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
-            NFC_PHY_tDelay(NfcTime.tCCS);
-
-            for (read_loop = 0; read_loop < bytes_per_data_parity; read_loop++)
+            do
             {
-                *parity++ = NFC_PHY_RData();
+                data = cur_read;
+                ecc_error_detected = 0;
+                ecc_uncorrected = 0;
+
+                /**************************************************************
+                 * Zero Initial
+                 **************************************************************/
+              //memset((void *)data_parity_buffer, 0, bytes_per_data_parity);
+              //memset((void *)data_fake_buffer, 0, bytes_per_data_ecc);
+              //memset((void *)data_error_location_buffer, 0, data_ecc_bits*sizeof(unsigned int));
+
+                /**************************************************************
+                 * Read Parity
+                 **************************************************************/
+                parity = data_parity_buffer;
+                paritycol = col + bytes_per_data_ecc;
+
+                NFC_PHY_tDelay(NfcTime.tRHW);
+                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
+                NFC_PHY_Addr(__NROOT(paritycol&0x000000FF,0));
+                NFC_PHY_Addr(__NROOT(paritycol&0x0000FF00,8));
+                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
+                NFC_PHY_tDelay(NfcTime.tCCS);
+
+                for (read_loop = 0; read_loop < bytes_per_data_parity; read_loop++)
+                {
+                    *parity++ = NFC_PHY_RData();
+                }
+
+                NFC_PHY_RAND_Randomize((void*)data_parity_buffer, bytes_per_data_parity, 0);
+
+                /**************************************************************
+                 * Read Data
+                 **************************************************************/
+                NFC_PHY_tDelay(NfcTime.tRHW);
+                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
+                NFC_PHY_Addr(__NROOT(col&0x000000FF,0));
+                NFC_PHY_Addr(__NROOT(col&0x0000FF00,8));
+                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
+                NFC_PHY_tDelay(NfcTime.tCCS);
+
+                NFC_PHY_EccDecoderReset(bytes_per_data_ecc, data_ecc_bits);
+                NFC_PHY_EccDecoderSetOrg((unsigned int *)data_parity_buffer, data_ecc_bits);
+                NFC_PHY_EccDecoderEnable(bytes_per_data_ecc, data_ecc_bits);
+
+                // Read Data From NAND Flash
+                for (read_loop = 0; read_loop < bytes_per_data_ecc; read_loop++)
+                {
+                    *data++ = NFC_PHY_RData();
+                }
+
+                /**************************************************************
+                 * ECC Correction
+                 **************************************************************/
+                NFC_PHY_EccDecoderWaitDone();
+                ecc_error_detected = NFC_PHY_EccDecoderHasError();
+
+                if (ecc_error_detected)
+                {
+                    ecc_uncorrected = NFC_PHY_EccCorrection("@ 2ndReadLog:Map",
+                                                            row,
+                                                            col,
+                                                            cur_read,
+                                                            bytes_per_data_ecc,
+                                                            data_ecc_bits,
+                                                            data_parity_buffer,
+                                                            bytes_per_data_parity,
+                                                            data_error_location_buffer,
+                                                            report_ecc_correct_bit,
+                                                            report_ecc_correct_sector,
+                                                            report_ecc_max_correct_bit,
+                                                            report_ecc_level,
+                                                            report_ecc_level_error,
+                                                            report_ecc_error);
+                }
+
+                if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable_show)
+                {
+                    if ((ecc_error_detected && (ecc_uncorrected || ecc_uncorrected_retry)) || (!ecc_error_detected && ecc_uncorrected_retry))
+                    {
+                        NFC_PHY_ShowUncorrectedData(ecc_uncorrected_retry, row, col, cur_read, bytes_per_data_ecc, data_ecc_bits, data_parity_buffer, bytes_per_data_parity);
+                    }
+                }
+
+                ecc_uncorrected_retry += ecc_uncorrected;
+
+            } while (ecc_error_detected && ecc_uncorrected && (ecc_uncorrected_retry < 2));
+
+            if (ecc_uncorrected)
+            {
+                *report_ecc_error += 1;
+
+                if (!retryable && Exchange.debug.nfc.phy.err_ecc_uncorrectable)
+                {
+                    __print("@ 2ndReadLog:Map:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
+                }
             }
-
-            NFC_PHY_RAND_Randomize((void*)data_parity_buffer, bytes_per_data_parity, 0);
-
-            /******************************************************************
-             * Read Data
-             ******************************************************************/
-            NFC_PHY_tDelay(NfcTime.tRHW);
-            NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
-            NFC_PHY_Addr(__NROOT(col&0x000000FF,0));
-            NFC_PHY_Addr(__NROOT(col&0x0000FF00,8));
-            NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
-            NFC_PHY_tDelay(NfcTime.tCCS);
-
-            NFC_PHY_EccDecoderReset(bytes_per_data_ecc, data_ecc_bits);
-            NFC_PHY_EccDecoderSetOrg((unsigned int *)data_parity_buffer, data_ecc_bits);
-            NFC_PHY_EccDecoderEnable(bytes_per_data_ecc, data_ecc_bits);
-
-            // Read Data From NAND Flash
-            for (read_loop = 0; read_loop < bytes_per_data_ecc; read_loop++)
+            else
             {
-                *data++ = NFC_PHY_RData();
-            }
-
-            /******************************************************************
-             * ECC Correction
-             ******************************************************************/
-            NFC_PHY_EccDecoderWaitDone();
-            ecc_error_detected = NFC_PHY_EccDecoderHasError();
-
-            if (ecc_error_detected)
-            {
-                unsigned int report_ecc[6] = {0,};
-
-                unsigned int * report_ecc_correct_bit = &(NfcEccStatus.correct_bit[way][channel]);
-                unsigned int * report_ecc_correct_sector = &(NfcEccStatus.correct_sector[way][channel]);
-                unsigned int * report_ecc_max_correct_bit = &(NfcEccStatus.max_correct_bit[way][channel]);
-                unsigned int * report_ecc_level = Exchange.nfc.ecc.level0;
-                unsigned int * report_ecc_level_error = &(NfcEccStatus.level_error[way][channel]);
-                unsigned int * report_ecc_error = &(NfcEccStatus.error[way][channel]);
-
-                if (!report_ecc_correct_bit) { report_ecc_correct_bit = &report_ecc[0]; }
-                if (!report_ecc_correct_sector) { report_ecc_correct_sector = &report_ecc[1]; }
-                if (!report_ecc_max_correct_bit) { report_ecc_max_correct_bit = &report_ecc[2]; }
-                if (!report_ecc_level) { report_ecc_level = &report_ecc[3]; }
-                if (!report_ecc_level_error) { report_ecc_level_error = &report_ecc[4]; }
-                if (!report_ecc_error) { report_ecc_error = &report_ecc[5]; }
-
-                NFC_PHY_EccCorrection("@ 2ndReadLog:Map",
-                                      row,
-                                      col,
-                                      cur_read,
-                                      bytes_per_data_ecc,
-                                      data_ecc_bits,
-                                      data_parity_buffer,
-                                      bytes_per_data_parity,
-                                      data_error_location_buffer,
-                                      report_ecc_correct_bit,
-                                      report_ecc_correct_sector,
-                                      report_ecc_max_correct_bit,
-                                      report_ecc_level,
-                                      report_ecc_level_error,
-                                      report_ecc_error);
+                if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable && ecc_uncorrected_retry)
+                {
+                    __print("@ 2ndReadLog:Map:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
+                }
             }
 
             NFC_PHY_RAND_Randomize((void*)cur_read, bytes_per_data_ecc, 0);
@@ -2312,7 +2419,8 @@ int NFC_PHY_2ndReadData(unsigned int _stage,
                         unsigned int _bytes_per_spare_ecc,
                         unsigned int _bytes_per_spare_parity,
                         unsigned int _spare_ecc_bits,
-                        void * _spare_buffer)
+                        void * _spare_buffer,
+                        unsigned int _retryable)
 {
     unsigned int stage = _stage & 0xF;
     unsigned int indexed = __NROOT(_stage,31);
@@ -2320,6 +2428,7 @@ int NFC_PHY_2ndReadData(unsigned int _stage,
     unsigned int way = _way;
     unsigned int row = _row;
     unsigned int col = _col;
+    unsigned int retryable = _retryable;
 
   //unsigned int fake_spare_row = _fake_spare_row;
     unsigned int fake_spare_col = _fake_spare_col;
@@ -2355,6 +2464,24 @@ int NFC_PHY_2ndReadData(unsigned int _stage,
     char * cur_read = __NULL;
 
     unsigned int ecc_error_detected = 0;
+    unsigned int ecc_uncorrected = 0;
+    unsigned int ecc_uncorrected_retry = 0;
+
+    unsigned int report_ecc[6] = {0, };
+
+    unsigned int * report_ecc_correct_bit = &(NfcEccStatus.correct_bit[way][channel]);
+    unsigned int * report_ecc_correct_sector = &(NfcEccStatus.correct_sector[way][channel]);
+    unsigned int * report_ecc_max_correct_bit = &(NfcEccStatus.max_correct_bit[way][channel]);
+    unsigned int * report_ecc_level = Exchange.nfc.ecc.level1;
+    unsigned int * report_ecc_level_error = &(NfcEccStatus.level_error[way][channel]);
+    unsigned int * report_ecc_error = &(NfcEccStatus.error[way][channel]);
+
+    if (!report_ecc_correct_bit) { report_ecc_correct_bit = &report_ecc[0]; }
+    if (!report_ecc_correct_sector) { report_ecc_correct_sector = &report_ecc[1]; }
+    if (!report_ecc_max_correct_bit) { report_ecc_max_correct_bit = &report_ecc[2]; }
+    if (!report_ecc_level) { report_ecc_level = &report_ecc[3]; }
+    if (!report_ecc_level_error) { report_ecc_level_error = &report_ecc[4]; }
+    if (!report_ecc_error) { report_ecc_error = &report_ecc[5]; }
 
     /**************************************************************************
      *
@@ -2393,93 +2520,113 @@ int NFC_PHY_2ndReadData(unsigned int _stage,
             case 5:
             case 7:
             {
-                memset((void *)data_parity_buffer, 0, bytes_per_data_parity);
-                memset((void *)data_fake_buffer, 0, bytes_per_data_ecc);
-                memset((void *)data_error_location_buffer, 0, data_ecc_bits*sizeof(unsigned int));
+                ecc_uncorrected_retry = 0;
 
-                /**************************************************************
-                 * Read Parity
-                 **************************************************************/
-                parity = data_parity_buffer;
-                paritycol = col + bytes_per_data_ecc;
-
-                NFC_PHY_tDelay(NfcTime.tRHW);
-                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
-                NFC_PHY_Addr(__NROOT(paritycol&0x000000FF,0));
-                NFC_PHY_Addr(__NROOT(paritycol&0x0000FF00,8));
-                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
-                NFC_PHY_tDelay(NfcTime.tCCS);
-
-                for (read_loop = 0; read_loop < bytes_per_data_parity; read_loop++)
+                do
                 {
-                    *parity++ = NFC_PHY_RData();
+                    ecc_error_detected = 0;
+                    ecc_uncorrected = 0;
+
+                  //memset((void *)data_parity_buffer, 0, bytes_per_data_parity);
+                  //memset((void *)data_fake_buffer, 0, bytes_per_data_ecc);
+                  //memset((void *)data_error_location_buffer, 0, data_ecc_bits*sizeof(unsigned int));
+
+                    /**************************************************************
+                     * Read Parity
+                     **************************************************************/
+                    parity = data_parity_buffer;
+                    paritycol = col + bytes_per_data_ecc;
+
+                    NFC_PHY_tDelay(NfcTime.tRHW);
+                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
+                    NFC_PHY_Addr(__NROOT(paritycol&0x000000FF,0));
+                    NFC_PHY_Addr(__NROOT(paritycol&0x0000FF00,8));
+                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
+                    NFC_PHY_tDelay(NfcTime.tCCS);
+
+                    for (read_loop = 0; read_loop < bytes_per_data_parity; read_loop++)
+                    {
+                        *parity++ = NFC_PHY_RData();
+                    }
+
+                    NFC_PHY_RAND_Randomize((void*)data_parity_buffer, bytes_per_data_parity, 0);
+
+                    /**************************************************************
+                     * Read Data
+                     **************************************************************/
+                    NFC_PHY_tDelay(NfcTime.tRHW);
+                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
+                    NFC_PHY_Addr(__NROOT(col&0x000000FF,0));
+                    NFC_PHY_Addr(__NROOT(col&0x0000FF00,8));
+                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
+                    NFC_PHY_tDelay(NfcTime.tCCS);
+
+                    NFC_PHY_EccDecoderReset(bytes_per_data_ecc, data_ecc_bits);
+                    NFC_PHY_EccDecoderSetOrg((unsigned int *)data_parity_buffer, data_ecc_bits);
+                    NFC_PHY_EccDecoderEnable(bytes_per_data_ecc, data_ecc_bits);
+
+                    // 1st 512 fake / 2nd 512 data
+                    fake = data_fake_buffer;
+
+                    for (read_loop = 0; read_loop < bytes_per_data_ecc; read_loop++)
+                    {
+                        *fake++ = NFC_PHY_RData();
+                    }
+
+                    fake = data_fake_buffer;
+
+                    /**************************************************************
+                     * ECC Correction
+                     **************************************************************/
+                    NFC_PHY_EccDecoderWaitDone();
+                    ecc_error_detected = NFC_PHY_EccDecoderHasError();
+
+                    if (ecc_error_detected)
+                    {
+                        ecc_uncorrected = NFC_PHY_EccCorrection("@ 2ndReadData:Data.1st",
+                                                                row,
+                                                                col,
+                                                                fake,
+                                                                bytes_per_data_ecc,
+                                                                data_ecc_bits,
+                                                                data_parity_buffer,
+                                                                bytes_per_data_parity,
+                                                                data_error_location_buffer,
+                                                                report_ecc_correct_bit,
+                                                                report_ecc_correct_sector,
+                                                                report_ecc_max_correct_bit,
+                                                                report_ecc_level,
+                                                                report_ecc_level_error,
+                                                                report_ecc_error);
+                    }
+
+                    if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable_show)
+                    {
+                        if ((ecc_error_detected && (ecc_uncorrected || ecc_uncorrected_retry)) || (!ecc_error_detected && ecc_uncorrected_retry))
+                        {
+                            NFC_PHY_ShowUncorrectedData(ecc_uncorrected_retry, row, col, fake, bytes_per_data_ecc, data_ecc_bits, data_parity_buffer, bytes_per_data_parity);
+                        }
+                    }
+
+                    ecc_uncorrected_retry += ecc_uncorrected;
+
+                } while (ecc_error_detected && ecc_uncorrected && (ecc_uncorrected_retry < 2));
+
+                if (ecc_uncorrected)
+                {
+                    *report_ecc_error += 1;
+
+                    if (!retryable && Exchange.debug.nfc.phy.err_ecc_uncorrectable)
+                    {
+                        __print("@ 2ndReadData:Data.1st:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
+                    }
                 }
-
-                NFC_PHY_RAND_Randomize((void*)data_parity_buffer, bytes_per_data_parity, 0);
-
-                /**************************************************************
-                 * Read Data
-                 **************************************************************/
-                NFC_PHY_tDelay(NfcTime.tRHW);
-                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
-                NFC_PHY_Addr(__NROOT(col&0x000000FF,0));
-                NFC_PHY_Addr(__NROOT(col&0x0000FF00,8));
-                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
-                NFC_PHY_tDelay(NfcTime.tCCS);
-
-                NFC_PHY_EccDecoderReset(bytes_per_data_ecc, data_ecc_bits);
-                NFC_PHY_EccDecoderSetOrg((unsigned int *)data_parity_buffer, data_ecc_bits);
-                NFC_PHY_EccDecoderEnable(bytes_per_data_ecc, data_ecc_bits);
-
-                // 1st 512 fake / 2nd 512 data
-                fake = data_fake_buffer;
-
-                for (read_loop = 0; read_loop < bytes_per_data_ecc; read_loop++)
+                else
                 {
-                    *fake++ = NFC_PHY_RData();
-                }
-
-                fake = data_fake_buffer;
-
-                /**************************************************************
-                 * ECC Correction
-                 **************************************************************/
-                NFC_PHY_EccDecoderWaitDone();
-                ecc_error_detected = NFC_PHY_EccDecoderHasError();
-
-                if (ecc_error_detected)
-                {
-                    unsigned int report_ecc[6] = {0,};
-
-                    unsigned int * report_ecc_correct_bit = &(NfcEccStatus.correct_bit[way][channel]);
-                    unsigned int * report_ecc_correct_sector = &(NfcEccStatus.correct_sector[way][channel]);
-                    unsigned int * report_ecc_max_correct_bit = &(NfcEccStatus.max_correct_bit[way][channel]);
-                    unsigned int * report_ecc_level = Exchange.nfc.ecc.level0;
-                    unsigned int * report_ecc_level_error = &(NfcEccStatus.level_error[way][channel]);
-                    unsigned int * report_ecc_error = &(NfcEccStatus.error[way][channel]);
-
-                    if (!report_ecc_correct_bit) { report_ecc_correct_bit = &report_ecc[0]; }
-                    if (!report_ecc_correct_sector) { report_ecc_correct_sector = &report_ecc[1]; }
-                    if (!report_ecc_max_correct_bit) { report_ecc_max_correct_bit = &report_ecc[2]; }
-                    if (!report_ecc_level) { report_ecc_level = &report_ecc[3]; }
-                    if (!report_ecc_level_error) { report_ecc_level_error = &report_ecc[4]; }
-                    if (!report_ecc_error) { report_ecc_error = &report_ecc[5]; }
-
-                    NFC_PHY_EccCorrection("@ 2ndReadData:Data:1st",
-                                          row,
-                                          col,
-                                          fake,
-                                          bytes_per_data_ecc,
-                                          data_ecc_bits,
-                                          data_parity_buffer,
-                                          bytes_per_data_parity,
-                                          data_error_location_buffer,
-                                          report_ecc_correct_bit,
-                                          report_ecc_correct_sector,
-                                          report_ecc_max_correct_bit,
-                                          report_ecc_level,
-                                          report_ecc_level_error,
-                                          report_ecc_error);
+                    if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable && ecc_uncorrected_retry)
+                    {
+                        __print("@ 2ndReadData:Data.1st:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
+                    }
                 }
 
                 NFC_PHY_RAND_Randomize((void*)data_fake_buffer, bytes_per_data_ecc, 0);
@@ -2511,90 +2658,110 @@ int NFC_PHY_2ndReadData(unsigned int _stage,
                 case 7:
                 {
                     cur_read = data;
+                    ecc_uncorrected_retry = 0;
 
-                    memset((void *)data_parity_buffer, 0, bytes_per_data_parity);
-                    memset((void *)data_fake_buffer, 0, bytes_per_data_ecc);
-                    memset((void *)data_error_location_buffer, 0, data_ecc_bits*sizeof(unsigned int));
-
-                    /**********************************************************
-                     * Read Parity
-                     **********************************************************/
-                    parity = data_parity_buffer;
-                    paritycol = col + bytes_per_data_ecc;
-
-                    NFC_PHY_tDelay(NfcTime.tRHW);
-                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
-                    NFC_PHY_Addr(__NROOT(paritycol&0x000000FF,0));
-                    NFC_PHY_Addr(__NROOT(paritycol&0x0000FF00,8));
-                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
-                    NFC_PHY_tDelay(NfcTime.tCCS);
-
-                    for (read_loop = 0; read_loop < bytes_per_data_parity; read_loop++)
+                    do
                     {
-                        *parity++ = NFC_PHY_RData();
+                        data = cur_read;
+                        ecc_error_detected = 0;
+                        ecc_uncorrected = 0;
+
+                      //memset((void *)data_parity_buffer, 0, bytes_per_data_parity);
+                      //memset((void *)data_fake_buffer, 0, bytes_per_data_ecc);
+                      //memset((void *)data_error_location_buffer, 0, data_ecc_bits*sizeof(unsigned int));
+
+                        /**********************************************************
+                         * Read Parity
+                         **********************************************************/
+                        parity = data_parity_buffer;
+                        paritycol = col + bytes_per_data_ecc;
+
+                        NFC_PHY_tDelay(NfcTime.tRHW);
+                        NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
+                        NFC_PHY_Addr(__NROOT(paritycol&0x000000FF,0));
+                        NFC_PHY_Addr(__NROOT(paritycol&0x0000FF00,8));
+                        NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
+                        NFC_PHY_tDelay(NfcTime.tCCS);
+
+                        for (read_loop = 0; read_loop < bytes_per_data_parity; read_loop++)
+                        {
+                            *parity++ = NFC_PHY_RData();
+                        }
+
+                        NFC_PHY_RAND_Randomize((void*)data_parity_buffer, bytes_per_data_parity, 0);
+
+                        /**********************************************************
+                         * Read Data
+                         **********************************************************/
+                        NFC_PHY_tDelay(NfcTime.tRHW);
+                        NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
+                        NFC_PHY_Addr(__NROOT(col&0x000000FF,0));
+                        NFC_PHY_Addr(__NROOT(col&0x0000FF00,8));
+                        NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
+                        NFC_PHY_tDelay(NfcTime.tCCS);
+
+                        NFC_PHY_EccDecoderReset(bytes_per_data_ecc, data_ecc_bits);
+                        NFC_PHY_EccDecoderSetOrg((unsigned int *)data_parity_buffer, data_ecc_bits);
+                        NFC_PHY_EccDecoderEnable(bytes_per_data_ecc, data_ecc_bits);
+
+                        // Read Data From NAND Flash
+                        for (read_loop = 0; read_loop < bytes_per_data_ecc; read_loop++)
+                        {
+                            *data++ = NFC_PHY_RData();
+                        }
+
+                        /**********************************************************
+                         * ECC Correction
+                         **********************************************************/
+                        NFC_PHY_EccDecoderWaitDone();
+                        ecc_error_detected = NFC_PHY_EccDecoderHasError();
+
+                        if (ecc_error_detected)
+                        {
+                            ecc_uncorrected = NFC_PHY_EccCorrection("@ 2ndReadData:Data.2nd",
+                                                                    row,
+                                                                    col,
+                                                                    cur_read,
+                                                                    bytes_per_data_ecc,
+                                                                    data_ecc_bits,
+                                                                    data_parity_buffer,
+                                                                    bytes_per_data_parity,
+                                                                    data_error_location_buffer,
+                                                                    report_ecc_correct_bit,
+                                                                    report_ecc_correct_sector,
+                                                                    report_ecc_max_correct_bit,
+                                                                    report_ecc_level,
+                                                                    report_ecc_level_error,
+                                                                    report_ecc_error);
+                        }
+
+                        if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable_show)
+                        {
+                            if ((ecc_error_detected && (ecc_uncorrected || ecc_uncorrected_retry)) || (!ecc_error_detected && ecc_uncorrected_retry))
+                            {
+                                NFC_PHY_ShowUncorrectedData(ecc_uncorrected_retry, row, col, cur_read, bytes_per_data_ecc, data_ecc_bits, data_parity_buffer, bytes_per_data_parity);
+                            }
+                        }
+
+                        ecc_uncorrected_retry += ecc_uncorrected;
+
+                    } while (ecc_error_detected && ecc_uncorrected && (ecc_uncorrected_retry < 2));
+
+                    if (ecc_uncorrected)
+                    {
+                        *report_ecc_error += 1;
+
+                        if (!retryable && Exchange.debug.nfc.phy.err_ecc_uncorrectable)
+                        {
+                            __print("@ 2ndReadData:Data.2nd:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
+                        }
                     }
-
-                    NFC_PHY_RAND_Randomize((void*)data_parity_buffer, bytes_per_data_parity, 0);
-
-                    /**********************************************************
-                     * Read Data
-                     **********************************************************/
-                    NFC_PHY_tDelay(NfcTime.tRHW);
-                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
-                    NFC_PHY_Addr(__NROOT(col&0x000000FF,0));
-                    NFC_PHY_Addr(__NROOT(col&0x0000FF00,8));
-                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
-                    NFC_PHY_tDelay(NfcTime.tCCS);
-
-                    NFC_PHY_EccDecoderReset(bytes_per_data_ecc, data_ecc_bits);
-                    NFC_PHY_EccDecoderSetOrg((unsigned int *)data_parity_buffer, data_ecc_bits);
-                    NFC_PHY_EccDecoderEnable(bytes_per_data_ecc, data_ecc_bits);
-
-                    // Read Data From NAND Flash
-                    for (read_loop = 0; read_loop < bytes_per_data_ecc; read_loop++)
+                    else
                     {
-                        *data++ = NFC_PHY_RData();
-                    }
-
-                    /**********************************************************
-                     * ECC Correction
-                     **********************************************************/
-                    NFC_PHY_EccDecoderWaitDone();
-                    ecc_error_detected = NFC_PHY_EccDecoderHasError();
-
-                    if (ecc_error_detected)
-                    {
-                        unsigned int report_ecc[6] = {0,};
-
-                        unsigned int * report_ecc_correct_bit = &(NfcEccStatus.correct_bit[way][channel]);
-                        unsigned int * report_ecc_correct_sector = &(NfcEccStatus.correct_sector[way][channel]);
-                        unsigned int * report_ecc_max_correct_bit = &(NfcEccStatus.max_correct_bit[way][channel]);
-                        unsigned int * report_ecc_level = Exchange.nfc.ecc.level0;
-                        unsigned int * report_ecc_level_error = &(NfcEccStatus.level_error[way][channel]);
-                        unsigned int * report_ecc_error = &(NfcEccStatus.error[way][channel]);
-
-                        if (!report_ecc_correct_bit) { report_ecc_correct_bit = &report_ecc[0]; }
-                        if (!report_ecc_correct_sector) { report_ecc_correct_sector = &report_ecc[1]; }
-                        if (!report_ecc_max_correct_bit) { report_ecc_max_correct_bit = &report_ecc[2]; }
-                        if (!report_ecc_level) { report_ecc_level = &report_ecc[3]; }
-                        if (!report_ecc_level_error) { report_ecc_level_error = &report_ecc[4]; }
-                        if (!report_ecc_error) { report_ecc_error = &report_ecc[5]; }
-
-                        NFC_PHY_EccCorrection("@ 2ndReadData:Data:2nd",
-                                              row,
-                                              col,
-                                              cur_read,
-                                              bytes_per_data_ecc,
-                                              data_ecc_bits,
-                                              data_parity_buffer,
-                                              bytes_per_data_parity,
-                                              data_error_location_buffer,
-                                              report_ecc_correct_bit,
-                                              report_ecc_correct_sector,
-                                              report_ecc_max_correct_bit,
-                                              report_ecc_level,
-                                              report_ecc_level_error,
-                                              report_ecc_error);
+                        if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable && ecc_uncorrected_retry)
+                        {
+                            __print("@ 2ndReadData:Data.2nd:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
+                        }
                     }
 
                     NFC_PHY_RAND_Randomize((void*)cur_read, bytes_per_data_ecc, 0);
@@ -2621,93 +2788,113 @@ int NFC_PHY_2ndReadData(unsigned int _stage,
             case 6:
             case 7:
             {
-                memset((void *)data_parity_buffer, 0, bytes_per_data_parity);
-                memset((void *)data_fake_buffer, 0, bytes_per_data_ecc);
-                memset((void *)data_error_location_buffer, 0, data_ecc_bits*sizeof(unsigned int));
+                ecc_uncorrected_retry = 0;
 
-                /**************************************************************
-                 * Read Parity
-                 **************************************************************/
-                parity = data_parity_buffer;
-                paritycol = col + bytes_per_data_ecc;
-
-                NFC_PHY_tDelay(NfcTime.tRHW);
-                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
-                NFC_PHY_Addr(__NROOT(paritycol&0x000000FF,0));
-                NFC_PHY_Addr(__NROOT(paritycol&0x0000FF00,8));
-                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
-                NFC_PHY_tDelay(NfcTime.tCCS);
-
-                for (read_loop = 0; read_loop < bytes_per_data_parity; read_loop++)
+                do
                 {
-                    *parity++ = NFC_PHY_RData();
+                    ecc_error_detected = 0;
+                    ecc_uncorrected = 0;
+
+                  //memset((void *)data_parity_buffer, 0, bytes_per_data_parity);
+                  //memset((void *)data_fake_buffer, 0, bytes_per_data_ecc);
+                  //memset((void *)data_error_location_buffer, 0, data_ecc_bits*sizeof(unsigned int));
+
+                    /**************************************************************
+                     * Read Parity
+                     **************************************************************/
+                    parity = data_parity_buffer;
+                    paritycol = col + bytes_per_data_ecc;
+
+                    NFC_PHY_tDelay(NfcTime.tRHW);
+                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
+                    NFC_PHY_Addr(__NROOT(paritycol&0x000000FF,0));
+                    NFC_PHY_Addr(__NROOT(paritycol&0x0000FF00,8));
+                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
+                    NFC_PHY_tDelay(NfcTime.tCCS);
+
+                    for (read_loop = 0; read_loop < bytes_per_data_parity; read_loop++)
+                    {
+                        *parity++ = NFC_PHY_RData();
+                    }
+
+                    NFC_PHY_RAND_Randomize((void*)data_parity_buffer, bytes_per_data_parity, 0);
+
+                    /**************************************************************
+                     * Read Data
+                     **************************************************************/
+                    NFC_PHY_tDelay(NfcTime.tRHW);
+                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
+                    NFC_PHY_Addr(__NROOT(col&0x000000FF,0));
+                    NFC_PHY_Addr(__NROOT(col&0x0000FF00,8));
+                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
+                    NFC_PHY_tDelay(NfcTime.tCCS);
+
+                    NFC_PHY_EccDecoderReset(bytes_per_data_ecc, data_ecc_bits);
+                    NFC_PHY_EccDecoderSetOrg((unsigned int *)data_parity_buffer, data_ecc_bits);
+                    NFC_PHY_EccDecoderEnable(bytes_per_data_ecc, data_ecc_bits);
+
+                    // 1st 512 data / 2nd 512 fake
+                    fake = data_fake_buffer;
+
+                    for (read_loop = 0; read_loop < bytes_per_data_ecc; read_loop++)
+                    {
+                        *fake++ = NFC_PHY_RData();
+                    }
+
+                    fake = data_fake_buffer;
+
+                    /**************************************************************
+                     * ECC Correction
+                     **************************************************************/
+                    NFC_PHY_EccDecoderWaitDone();
+                    ecc_error_detected = NFC_PHY_EccDecoderHasError();
+
+                    if (ecc_error_detected)
+                    {
+                        ecc_uncorrected = NFC_PHY_EccCorrection("@ 2ndReadData:Data.3rd",
+                                                                row,
+                                                                col,
+                                                                fake,
+                                                                bytes_per_data_ecc,
+                                                                data_ecc_bits,
+                                                                data_parity_buffer,
+                                                                bytes_per_data_parity,
+                                                                data_error_location_buffer,
+                                                                report_ecc_correct_bit,
+                                                                report_ecc_correct_sector,
+                                                                report_ecc_max_correct_bit,
+                                                                report_ecc_level,
+                                                                report_ecc_level_error,
+                                                                report_ecc_error);
+                    }
+
+                    if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable_show)
+                    {
+                        if ((ecc_error_detected && (ecc_uncorrected || ecc_uncorrected_retry)) || (!ecc_error_detected && ecc_uncorrected_retry))
+                        {
+                            NFC_PHY_ShowUncorrectedData(ecc_uncorrected_retry, row, col, fake, bytes_per_data_ecc, data_ecc_bits, data_parity_buffer, bytes_per_data_parity);
+                        }
+                    }
+
+                    ecc_uncorrected_retry += ecc_uncorrected;
+
+                } while (ecc_error_detected && ecc_uncorrected && (ecc_uncorrected_retry < 2));
+
+                if (ecc_uncorrected)
+                {
+                    *report_ecc_error += 1;
+
+                    if (!retryable && Exchange.debug.nfc.phy.err_ecc_uncorrectable)
+                    {
+                        __print("@ 2ndReadData:Data.3rd:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
+                    }
                 }
-
-                NFC_PHY_RAND_Randomize((void*)data_parity_buffer, bytes_per_data_parity, 0);
-
-                /**************************************************************
-                 * Read Data
-                 **************************************************************/
-                NFC_PHY_tDelay(NfcTime.tRHW);
-                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
-                NFC_PHY_Addr(__NROOT(col&0x000000FF,0));
-                NFC_PHY_Addr(__NROOT(col&0x0000FF00,8));
-                NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
-                NFC_PHY_tDelay(NfcTime.tCCS);
-
-                NFC_PHY_EccDecoderReset(bytes_per_data_ecc, data_ecc_bits);
-                NFC_PHY_EccDecoderSetOrg((unsigned int *)data_parity_buffer, data_ecc_bits);
-                NFC_PHY_EccDecoderEnable(bytes_per_data_ecc, data_ecc_bits);
-
-                // 1st 512 data / 2nd 512 fake
-                fake = data_fake_buffer;
-
-                for (read_loop = 0; read_loop < bytes_per_data_ecc; read_loop++)
+                else
                 {
-                    *fake++ = NFC_PHY_RData();
-                }
-
-                fake = data_fake_buffer;
-
-                /**************************************************************
-                 * ECC Correction
-                 **************************************************************/
-                NFC_PHY_EccDecoderWaitDone();
-                ecc_error_detected = NFC_PHY_EccDecoderHasError();
-
-                if (ecc_error_detected)
-                {
-                    unsigned int report_ecc[6] = {0,};
-
-                    unsigned int * report_ecc_correct_bit = &(NfcEccStatus.correct_bit[way][channel]);
-                    unsigned int * report_ecc_correct_sector = &(NfcEccStatus.correct_sector[way][channel]);
-                    unsigned int * report_ecc_max_correct_bit = &(NfcEccStatus.max_correct_bit[way][channel]);
-                    unsigned int * report_ecc_level = Exchange.nfc.ecc.level0;
-                    unsigned int * report_ecc_level_error = &(NfcEccStatus.level_error[way][channel]);
-                    unsigned int * report_ecc_error = &(NfcEccStatus.error[way][channel]);
-
-                    if (!report_ecc_correct_bit) { report_ecc_correct_bit = &report_ecc[0]; }
-                    if (!report_ecc_correct_sector) { report_ecc_correct_sector = &report_ecc[1]; }
-                    if (!report_ecc_max_correct_bit) { report_ecc_max_correct_bit = &report_ecc[2]; }
-                    if (!report_ecc_level) { report_ecc_level = &report_ecc[3]; }
-                    if (!report_ecc_level_error) { report_ecc_level_error = &report_ecc[4]; }
-                    if (!report_ecc_error) { report_ecc_error = &report_ecc[5]; }
-
-                    NFC_PHY_EccCorrection("@ 2ndReadData:Data:3rd",
-                                          row,
-                                          col,
-                                          fake,
-                                          bytes_per_data_ecc,
-                                          data_ecc_bits,
-                                          data_parity_buffer,
-                                          bytes_per_data_parity,
-                                          data_error_location_buffer,
-                                          report_ecc_correct_bit,
-                                          report_ecc_correct_sector,
-                                          report_ecc_max_correct_bit,
-                                          report_ecc_level,
-                                          report_ecc_level_error,
-                                          report_ecc_error);
+                    if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable && ecc_uncorrected_retry)
+                    {
+                        __print("@ 2ndReadData:Data.3rd:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
+                    }
                 }
 
                 NFC_PHY_RAND_Randomize((void*)data_fake_buffer, bytes_per_data_ecc, 0);
@@ -2737,109 +2924,129 @@ int NFC_PHY_2ndReadData(unsigned int _stage,
                 case 0:
                 case 8: /* read spare */
                 {
-                    memset((void *)spare_parity_buffer, 0, bytes_per_spare_parity);
-                    memset((void *)spare_fake_buffer, 0, bytes_per_spare_ecc);
-                    memset((void *)spare_error_location_buffer, 0, spare_ecc_bits*sizeof(unsigned int));
+                    ecc_uncorrected_retry = 0;
 
-                    /**********************************************************
-                     * Read Parity
-                     **********************************************************/
-                    parity = spare_parity_buffer;
-                    paritycol = col + bytes_per_spare_ecc;
-
-                    NFC_PHY_tDelay(NfcTime.tRHW);
-                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
-                    NFC_PHY_Addr(__NROOT(paritycol&0x000000FF,0));
-                    NFC_PHY_Addr(__NROOT(paritycol&0x0000FF00,8));
-                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
-                    NFC_PHY_tDelay(NfcTime.tCCS);
-
-                    for (read_loop = 0; read_loop < bytes_per_spare_parity; read_loop++)
+                    do
                     {
-                        *parity++ = NFC_PHY_RData();
-                    }
+                        ecc_error_detected = 0;
+                        ecc_uncorrected = 0;
 
-#if defined (__KTW_SUPPORT_SPARE_RAMDOMIZE__)
-                    NFC_PHY_RAND_Randomize((void*)spare_parity_buffer, bytes_per_spare_parity, 0);
-#endif
-                    /**********************************************************
-                     * Read Data
-                     **********************************************************/
-                    NFC_PHY_EccDecoderReset(1024, spare_ecc_bits);
-                    NFC_PHY_EccDecoderSetOrg((unsigned int *)spare_parity_buffer, spare_ecc_bits);
-                    NFC_PHY_EccDecoderEnable(1024, spare_ecc_bits);
+                      //memset((void *)spare_parity_buffer, 0, bytes_per_spare_parity);
+                      //memset((void *)spare_fake_buffer, 0, bytes_per_spare_ecc);
+                      //memset((void *)spare_error_location_buffer, 0, spare_ecc_bits*sizeof(unsigned int));
 
-                    NFC_PHY_tDelay(NfcTime.tRHW);
-                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
-                    NFC_PHY_Addr(__NROOT(col&0x000000FF,0));
-                    NFC_PHY_Addr(__NROOT(col&0x0000FF00,8));
-                    NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
-                    NFC_PHY_tDelay(NfcTime.tCCS);
+                        /**********************************************************
+                         * Read Parity
+                         **********************************************************/
+                        parity = spare_parity_buffer;
+                        paritycol = col + bytes_per_spare_ecc;
 
-                    // 1st 512 data / 2nd 512 fake
-                    fake = spare_fake_buffer;
-
-                    for (read_loop = 0; read_loop < bytes_per_spare_ecc; read_loop++)
-                    {
-                        *fake++ = NFC_PHY_RData();
-                    }
-
-                    for (read_loop = 0; read_loop < (1024 - bytes_per_spare_ecc) / 4; read_loop++)
-                    {
                         NFC_PHY_tDelay(NfcTime.tRHW);
                         NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
-                        NFC_PHY_Addr(__NROOT(fake_spare_col&0x000000FF,0));
-                        NFC_PHY_Addr(__NROOT(fake_spare_col&0x0000FF00,8));
+                        NFC_PHY_Addr(__NROOT(paritycol&0x000000FF,0));
+                        NFC_PHY_Addr(__NROOT(paritycol&0x0000FF00,8));
                         NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
                         NFC_PHY_tDelay(NfcTime.tCCS);
 
-                        *fake++ = NFC_PHY_RData();
-                        *fake++ = NFC_PHY_RData();
-                        *fake++ = NFC_PHY_RData();
-                        *fake++ = NFC_PHY_RData();
-                    }
+                        for (read_loop = 0; read_loop < bytes_per_spare_parity; read_loop++)
+                        {
+                            *parity++ = NFC_PHY_RData();
+                        }
 
-                    fake = spare_fake_buffer;
+#if defined (__KTW_SUPPORT_SPARE_RAMDOMIZE__)
+                        NFC_PHY_RAND_Randomize((void*)spare_parity_buffer, bytes_per_spare_parity, 0);
+#endif
+                        /**********************************************************
+                         * Read Data
+                         **********************************************************/
+                        NFC_PHY_EccDecoderReset(1024, spare_ecc_bits);
+                        NFC_PHY_EccDecoderSetOrg((unsigned int *)spare_parity_buffer, spare_ecc_bits);
+                        NFC_PHY_EccDecoderEnable(1024, spare_ecc_bits);
 
-                    /**********************************************************
-                     * ECC Correction
-                     **********************************************************/
-                    NFC_PHY_EccDecoderWaitDone();
-                    ecc_error_detected = NFC_PHY_EccDecoderHasError();
+                        NFC_PHY_tDelay(NfcTime.tRHW);
+                        NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
+                        NFC_PHY_Addr(__NROOT(col&0x000000FF,0));
+                        NFC_PHY_Addr(__NROOT(col&0x0000FF00,8));
+                        NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
+                        NFC_PHY_tDelay(NfcTime.tCCS);
 
-                    if (ecc_error_detected)
+                        // 1st 512 data / 2nd 512 fake
+                        fake = spare_fake_buffer;
+
+                        for (read_loop = 0; read_loop < bytes_per_spare_ecc; read_loop++)
+                        {
+                            *fake++ = NFC_PHY_RData();
+                        }
+
+                        for (read_loop = 0; read_loop < (1024 - bytes_per_spare_ecc) / 4; read_loop++)
+                        {
+                            NFC_PHY_tDelay(NfcTime.tRHW);
+                            NFC_PHY_Cmd(NF_CMD_READ_RANDOM_1ST);
+                            NFC_PHY_Addr(__NROOT(fake_spare_col&0x000000FF,0));
+                            NFC_PHY_Addr(__NROOT(fake_spare_col&0x0000FF00,8));
+                            NFC_PHY_Cmd(NF_CMD_READ_RANDOM_2ND);
+                            NFC_PHY_tDelay(NfcTime.tCCS);
+
+                            *fake++ = NFC_PHY_RData();
+                            *fake++ = NFC_PHY_RData();
+                            *fake++ = NFC_PHY_RData();
+                            *fake++ = NFC_PHY_RData();
+                        }
+
+                        fake = spare_fake_buffer;
+
+                        /**********************************************************
+                         * ECC Correction
+                         **********************************************************/
+                        NFC_PHY_EccDecoderWaitDone();
+                        ecc_error_detected = NFC_PHY_EccDecoderHasError();
+
+                        if (ecc_error_detected)
+                        {
+                            ecc_uncorrected = NFC_PHY_EccCorrection("@ 2ndReadData:Spare",
+                                                                    row,
+                                                                    col,
+                                                                    fake,
+                                                                    bytes_per_spare_ecc,
+                                                                    spare_ecc_bits,
+                                                                    spare_parity_buffer,
+                                                                    bytes_per_spare_parity,
+                                                                    spare_error_location_buffer,
+                                                                    report_ecc_correct_bit,
+                                                                    report_ecc_correct_sector,
+                                                                    report_ecc_max_correct_bit,
+                                                                    report_ecc_level,
+                                                                    report_ecc_level_error,
+                                                                    report_ecc_error);
+                        }
+
+                        if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable_show)
+                        {
+                            if ((ecc_error_detected && (ecc_uncorrected || ecc_uncorrected_retry)) || (!ecc_error_detected && ecc_uncorrected_retry))
+                            {
+                                NFC_PHY_ShowUncorrectedData(ecc_uncorrected_retry, row, col, fake, bytes_per_spare_ecc, spare_ecc_bits, spare_parity_buffer, bytes_per_spare_parity);
+                            }
+                        }
+
+                        ecc_uncorrected_retry += ecc_uncorrected;
+
+                    } while (ecc_error_detected && ecc_uncorrected && (ecc_uncorrected_retry < 2));
+
+                    if (ecc_uncorrected)
                     {
-                        unsigned int report_ecc[6] = {0,};
+                        *report_ecc_error += 1;
 
-                        unsigned int * report_ecc_correct_bit = &(NfcEccStatus.correct_bit[way][channel]);
-                        unsigned int * report_ecc_correct_sector = &(NfcEccStatus.correct_sector[way][channel]);
-                        unsigned int * report_ecc_max_correct_bit = &(NfcEccStatus.max_correct_bit[way][channel]);
-                        unsigned int * report_ecc_level = Exchange.nfc.ecc.level1;
-                        unsigned int * report_ecc_level_error = &(NfcEccStatus.level_error[way][channel]);
-                        unsigned int * report_ecc_error = &(NfcEccStatus.error[way][channel]);
-
-                        if (!report_ecc_correct_bit) { report_ecc_correct_bit = &report_ecc[0]; }
-                        if (!report_ecc_correct_sector) { report_ecc_correct_sector = &report_ecc[1]; }
-                        if (!report_ecc_max_correct_bit) { report_ecc_max_correct_bit = &report_ecc[2]; }
-                        if (!report_ecc_level) { report_ecc_level = &report_ecc[3]; }
-                        if (!report_ecc_level_error) { report_ecc_level_error = &report_ecc[4]; }
-                        if (!report_ecc_error) { report_ecc_error = &report_ecc[5]; }
-
-                        NFC_PHY_EccCorrection("@ 2ndReadData:Spare",
-                                              row,
-                                              col,
-                                              fake,
-                                              bytes_per_spare_ecc,
-                                              spare_ecc_bits,
-                                              spare_parity_buffer,
-                                              bytes_per_spare_parity,
-                                              spare_error_location_buffer,
-                                              report_ecc_correct_bit,
-                                              report_ecc_correct_sector,
-                                              report_ecc_max_correct_bit,
-                                              report_ecc_level,
-                                              report_ecc_level_error,
-                                              report_ecc_error);
+                        if (!retryable && Exchange.debug.nfc.phy.err_ecc_uncorrectable)
+                        {
+                            __print("@ 2ndReadData:Spare:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
+                        }
+                    }
+                    else
+                    {
+                        if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable && ecc_uncorrected_retry)
+                        {
+                            __print("@ 2ndReadData:Spare:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
+                        }
                     }
 
                     memcpy((void *)spare, (const void *)spare_fake_buffer, bytes_per_spare_ecc);
@@ -4119,13 +4326,13 @@ int NFC_PHY_1stErase(unsigned int _channel,
                 NFC_PHY_Addr(__NROOT(row0&0x000000FF,0));
                 NFC_PHY_Addr(__NROOT(row0&0x0000FF00,8));
                 NFC_PHY_Addr(__NROOT(row0&0x00FF0000,16));
-            
+
                 // Second Plane Erase
                 NFC_PHY_Cmd(NF_CMD_ERASE_1ST);
                 NFC_PHY_Addr(__NROOT(row1&0x000000FF,0));
                 NFC_PHY_Addr(__NROOT(row1&0x0000FF00,8));
                 NFC_PHY_Addr(__NROOT(row1&0x00FF0000,16));
-            
+
                 // Execute Erase
                 NFC_PHY_Cmd(NF_CMD_ERASE_2ND);
                 NFC_PHY_tDelay(NfcTime.tWB);

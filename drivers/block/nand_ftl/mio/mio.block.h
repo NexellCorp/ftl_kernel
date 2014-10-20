@@ -113,6 +113,7 @@ struct mio_state
     {
         struct task_struct * thread;
         struct request_queue * rq;
+        spinlock_t queue_lock;
 
         spinlock_t lock;
         struct mutex thread_mutex;

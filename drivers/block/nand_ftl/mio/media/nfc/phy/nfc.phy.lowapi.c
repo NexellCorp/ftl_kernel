@@ -531,6 +531,7 @@ int NFC_PHY_LOWAPI_read(unsigned int block_ofs, unsigned int page_ofs, unsigned 
 
     unsigned char readretry_type = info->readretry_type;
     unsigned char curr_retry_cnt = 0, max_retry_cnt = 0;
+    unsigned int retryable = 0;
 
     switch (readretry_type)
     {
@@ -594,6 +595,7 @@ int NFC_PHY_LOWAPI_read(unsigned int block_ofs, unsigned int page_ofs, unsigned 
                 NfcEccStatus.error[way][channel] = 0;
 
                 col = (curr_sec_ofs / (info->bytes_per_ecc/512)) * (info->bytes_per_ecc + info->bytes_per_parity);
+                retryable = ((curr_retry_cnt + 1) < max_retry_cnt)? 1: 0;
 
                 DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_read: blk:%d, pg:%d, secofs:%d stage:%d, loop:%d \n", curr_blockindex, curr_pageindex, curr_sec_ofs, curr_stage, loop_count);
 
@@ -604,7 +606,9 @@ int NFC_PHY_LOWAPI_read(unsigned int block_ofs, unsigned int page_ofs, unsigned 
                                     /* DATA */
                                     loop_count, info->bytes_per_ecc, info->bytes_per_parity, info->ecc_bits, curr_buff,
                                     /* SPARE */
-                                    0, 0, 0, 0);
+                                    0, 0, 0, 0,
+                                    /* etc */
+                                    retryable);
 
                 // check ecc
                 if(NfcEccStatus.error[way][channel])

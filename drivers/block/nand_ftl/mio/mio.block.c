@@ -357,6 +357,7 @@ static int mio_transaction_thread(void * _arg)
 {
     struct mio_state * io_state = mio_dev.io_state;
     struct request_queue * rq = io_state->transaction.rq;
+    struct spinlock_t * iolock = &io_state->transaction.lock;
     struct mutex * mlock = &io_state->transaction.thread_mutex;
     struct request * req = NULL;
 
@@ -375,7 +376,9 @@ static int mio_transaction_thread(void * _arg)
             // Background Jobs
             spin_unlock_irq(rq->queue_lock);
             mutex_lock(mlock);
-            mio_background(io_state);
+            {
+                mio_background(io_state);
+            }
             mutex_unlock(mlock);
             spin_lock_irq(rq->queue_lock);
 
@@ -516,6 +519,7 @@ static int __init mio_init(void)
 
         mio_dev.io_state->transaction.thread = NULL;
         mio_dev.io_state->transaction.rq = NULL;
+        spin_lock_init(&mio_dev.io_state->transaction.queue_lock);
         spin_lock_init(&mio_dev.io_state->transaction.lock);
         mutex_init(&mio_dev.io_state->transaction.thread_mutex);
 
@@ -528,7 +532,7 @@ static int __init mio_init(void)
         /**********************************************************************
          * Request Queue Create
          **********************************************************************/
-        if (NULL == (mio_dev.io_state->transaction.rq = blk_init_queue(mio_request_fetch, &mio_dev.io_state->transaction.lock)))
+        if (NULL == (mio_dev.io_state->transaction.rq = blk_init_queue(mio_request_fetch, &mio_dev.io_state->transaction.queue_lock)))
         {
             printk(KERN_ERR "mio.block: blk_init_queue failure\n");
             unregister_blkdev(mio_major, "mio");
@@ -548,10 +552,11 @@ static int __init mio_init(void)
         /**************************************************************************
          * KThreads
          **************************************************************************/
+        // get_cpu() ÈÄ¿¡ put_cpu()
         if (NULL == mio_dev.io_state->transaction.thread)
         {
-          //mio_dev.io_state->transaction.thread = (struct task_struct *)kthread_run(mio_transaction_thread, mio_dev.io_state, "mio_transaction_thread");
-            mio_dev.io_state->transaction.thread = (struct task_struct *)kthread_create(mio_transaction_thread, mio_dev.io_state, "mio_transaction_thread");
+            mio_dev.io_state->transaction.thread = (struct task_struct *)kthread_run(mio_transaction_thread, mio_dev.io_state, "mio_transaction_thread");
+          //mio_dev.io_state->transaction.thread = (struct task_struct *)kthread_create(mio_transaction_thread, mio_dev.io_state, "mio_transaction_thread");
 
             if (IS_ERR(mio_dev.io_state->transaction.thread))
             {
@@ -561,8 +566,8 @@ static int __init mio_init(void)
                 return -ENODEV;
             }
 
-            kthread_bind(mio_dev.io_state->transaction.thread, 0);
-            wake_up_process(mio_dev.io_state->transaction.thread);
+          //kthread_bind(mio_dev.io_state->transaction.thread, 0);
+          //wake_up_process(mio_dev.io_state->transaction.thread);
         }
 
         if (NULL == mio_dev.io_state->background.thread)
