@@ -215,30 +215,24 @@ void mio_background(struct mio_state * _io_state)
     {
         io_state->background.e.flush = 0;
 
-      //Exchange.sys.fnIndicatorBgBusy();
         media_flush(io_state);
         while (!media_is_idle(io_state));
-      //Exchange.sys.fnIndicatorBgIdle();
     }
 
     if (io_state->background.e.standby)
     {
         io_state->background.e.standby = 0;
 
-      //Exchange.sys.fnIndicatorBgBusy();
         media_standby(io_state);
         while (!media_is_idle(io_state));
-      //Exchange.sys.fnIndicatorBgIdle();
     }
 
     if (io_state->background.e.bgjobs)
     {
         io_state->background.e.bgjobs = 0;
 
-      //Exchange.sys.fnIndicatorBgBusy();
         media_background(io_state);
         while (!media_is_idle(io_state));
-      //Exchange.sys.fnIndicatorBgIdle();
     }
 }
 
@@ -394,9 +388,7 @@ static int mio_transaction_thread(void * _arg)
                 spin_unlock_irq(rq->queue_lock);
                 mutex_lock(mlock);
                 {
-                    Exchange.sys.fnIndicatorBgBusy();
                     media_super();
-                    Exchange.sys.fnIndicatorBgIdle();
                 }
                 mutex_unlock(mlock);
                 spin_lock_irq(rq->queue_lock);
@@ -405,9 +397,7 @@ static int mio_transaction_thread(void * _arg)
             {
                 spin_unlock_irq(rq->queue_lock);
                 {
-                    Exchange.sys.fnIndicatorBgBusy();
                     schedule();
-                    Exchange.sys.fnIndicatorBgIdle();
                 }
                 spin_lock_irq(rq->queue_lock);
             }
@@ -424,7 +414,7 @@ static int mio_transaction_thread(void * _arg)
             if (io_state->transaction.wake.cnt) { io_state->transaction.wake.cnt -= 1; }
             io_state->transaction.wake.time = MIO_TIME_DIFF_MAX(get_jiffies_64());
 
-            Exchange.sys.fnIndicatorIoIdle();
+            if (Exchange.sys.fnIndicatorReqIdle) { Exchange.sys.fnIndicatorReqIdle(); }
         }
         mutex_unlock(mlock);
         spin_lock_irq(rq->queue_lock);
@@ -455,7 +445,7 @@ static void mio_request_fetch(struct request_queue * _q)
     struct mio_state * io_state = _q->queuedata;
 
     // Wake Up Thread
-    Exchange.sys.fnIndicatorIoBusy();
+    if (Exchange.sys.fnIndicatorReqBusy) { Exchange.sys.fnIndicatorReqBusy(); }
     io_state->transaction.wake.cnt += 1;
     io_state->transaction.wake.time = get_jiffies_64() + MIO_TIME_MSEC(10);
 

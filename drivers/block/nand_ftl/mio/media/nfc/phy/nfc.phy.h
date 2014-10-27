@@ -200,6 +200,7 @@ typedef struct __NFC_PHY_AC_TIME__
     unsigned int tR;
     unsigned int tWB;
     unsigned int tCCS;
+    unsigned int tCCS2;
     unsigned int tADL;
     unsigned int tRHW;
     unsigned int tWHR;
@@ -208,7 +209,6 @@ typedef struct __NFC_PHY_AC_TIME__
     unsigned int tFEAT;
 
     unsigned int tParity;
-    unsigned int tDelay;
 
 } NFC_PHY_AC_TIME;
 

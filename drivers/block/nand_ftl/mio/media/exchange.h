@@ -541,10 +541,10 @@ typedef struct __ExSYS__
     void (*fnSpor)(void);
 
     // Indicator
-    void (*fnIndicatorIoBusy)(void);
-    void (*fnIndicatorIoIdle)(void);
-    void (*fnIndicatorBgBusy)(void);
-    void (*fnIndicatorBgIdle)(void);
+    void (*fnIndicatorReqBusy)(void);
+    void (*fnIndicatorReqIdle)(void);
+    void (*fnIndicatorNfcBusy)(void);
+    void (*fnIndicatorNfcIdle)(void);
 
 } ExSYS;
 #pragma pack()

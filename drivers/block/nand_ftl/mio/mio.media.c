@@ -43,10 +43,10 @@ static u8 * media_on_ram;
  *
  ******************************************************************************/
 void media_indicator_init(void);
-void media_indicator_io_busy(void);
-void media_indicator_io_idle(void);
-void media_indicator_bg_busy(void);
-void media_indicator_bg_idle(void);
+void media_indicator_busy0(void);
+void media_indicator_idle0(void);
+void media_indicator_busy1(void);
+void media_indicator_idle1(void);
 
 /******************************************************************************
  *
@@ -97,10 +97,10 @@ int media_open(void)
     Exchange.sys.support_list.led_indicator = 1;
     Exchange.sys.support_list.spor = 1;
 
-    Exchange.sys.fnIndicatorIoBusy = media_indicator_io_busy;
-    Exchange.sys.fnIndicatorIoIdle = media_indicator_io_idle;
-    Exchange.sys.fnIndicatorBgBusy = media_indicator_bg_busy;
-    Exchange.sys.fnIndicatorBgIdle = media_indicator_bg_idle;
+    Exchange.sys.fnIndicatorReqBusy = media_indicator_busy0;
+    Exchange.sys.fnIndicatorReqIdle = media_indicator_idle0;
+    Exchange.sys.fnIndicatorNfcBusy = media_indicator_busy1;
+    Exchange.sys.fnIndicatorNfcIdle = media_indicator_idle1;
 
     media_indicator_init();
 
@@ -129,8 +129,8 @@ int media_open(void)
   //Exchange.debug.nfc.phy.info_ecc_correction = 1;
   //Exchange.debug.nfc.phy.info_ecc_corrected = 1;
     Exchange.debug.nfc.phy.warn_prohibited_block_access = 1;
-    Exchange.debug.nfc.phy.warn_ecc_uncorrectable = 1;
-    Exchange.debug.nfc.phy.warn_ecc_uncorrectable_show = 1;
+  //Exchange.debug.nfc.phy.warn_ecc_uncorrectable = 1;
+  //Exchange.debug.nfc.phy.warn_ecc_uncorrectable_show = 1;
     Exchange.debug.nfc.phy.err_ecc_uncorrectable = 1;
 
     /**************************************************************************
@@ -572,22 +572,22 @@ void media_indicator_init(void)
     nxp_soc_gpio_set_io_dir(Exchange.sys.gpio.bg_job, 1);
 }
 
-void media_indicator_io_busy(void)
+void media_indicator_busy0(void)
 {
     nxp_soc_gpio_set_out_value(Exchange.sys.gpio.io_req, 1);
 }
 
-void media_indicator_io_idle(void)
+void media_indicator_idle0(void)
 {
     nxp_soc_gpio_set_out_value(Exchange.sys.gpio.io_req, 0);
 }
 
-void media_indicator_bg_busy(void)
+void media_indicator_busy1(void)
 {
     nxp_soc_gpio_set_out_value(Exchange.sys.gpio.bg_job, 1);
 }
 
-void media_indicator_bg_idle(void)
+void media_indicator_idle1(void)
 {
     nxp_soc_gpio_set_out_value(Exchange.sys.gpio.bg_job, 0);
 }
