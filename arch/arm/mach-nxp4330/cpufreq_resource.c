@@ -346,7 +346,7 @@ long funcGetMaxFreq(struct cpufreq_limit_data *limit)
 		{
 			if(isGet_LimitMaxUner() == 0)
 				{
-				printk("max return \n");
+				/* comment : printk("max return \n"); */
 				max_freq = limit->aval_max_freq;
 				}
 			else
