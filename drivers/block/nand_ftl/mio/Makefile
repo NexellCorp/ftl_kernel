@@ -6,6 +6,7 @@ obj-$(CONFIG_NAND_FTL) := mio.o
 mio-y += mio.block.o \
          mio.media.o \
          mio.sys.o \
+         mio.smart.o \
          media/exchange.o \
          media/include/include.o \
          media/ftl/ftl.o \

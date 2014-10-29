@@ -678,7 +678,6 @@ int NFC_PHY_HYNIX_READRETRY_MakeReg(unsigned int _channel, unsigned int _phyway,
 
         if (Exchange.debug.ftl.read_retry)
         {
-            unsigned char *data = otp_buf;
             int i=0;
 
             DBG_PHY_READRETRY(" ##################################################\n");
@@ -690,7 +689,7 @@ int NFC_PHY_HYNIX_READRETRY_MakeReg(unsigned int _channel, unsigned int _phyway,
                 {
                     DBG_PHY_READRETRY("\n # [0x%03X]", i);
                 }
-                DBG_PHY_READRETRY("%02x ", data[i]);
+                DBG_PHY_READRETRY("%02x ", otp_buf[i]);
             }
             DBG_PHY_READRETRY("\n");
             DBG_PHY_READRETRY(" ##################################################\n");
