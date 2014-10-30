@@ -304,11 +304,13 @@ typedef struct __ExFTL__
     unsigned int (*fnIsReady)(void);
     unsigned int (*fnIsIdle)(void);
     unsigned int (*fnIsBusy)(void);
+    unsigned int (*fnIsAdminBusy)(void);
 
     // Misc Method
     unsigned int (*fnSetTime)(void);
     WARN * (*fnGetWarnList)(void);
     int (*fnGetNandInfo)(NAND *info);
+    int (*fnGetWearLevelData)(unsigned char _channel, unsigned char _way, void *buff, unsigned int buff_size);
 
 #define BLOCK_TYPE_MAPLOG           (0x8)
 #define BLOCK_TYPE_FREE             (0x9)
@@ -328,8 +330,8 @@ typedef struct __ExFTL__
 
     // Property
     unsigned int * Capacity;
-    unsigned int * Way;
-    unsigned int * Channel;
+    unsigned char * Way;
+    unsigned char * Channel;
     unsigned int * ReadRetryCount;
 
 } ExFTL;
@@ -358,6 +360,18 @@ typedef struct __ExBUFFER__
     unsigned int * SectorsOfWriteCache;
     unsigned int * WriteNfcIdx;
     unsigned int * WriteBlkIdx;
+
+    // Direct Read/Write Cache
+    unsigned int * BaseOfDirectReadCache;
+    unsigned int * SectorsOfDirectReadCache;
+    unsigned int * BaseOfDirectWriteCache;
+    unsigned int * SectorsOfDirectWriteCache;
+
+    // Admin buffer
+    unsigned int * BaseOfAdmin1;
+    unsigned int * SectorsOfAdmin1;
+    unsigned int * BaseOfAdmin2;
+    unsigned int * SectorsOfAdmin2;
 
 } ExBUFFER;
 #pragma pack()
@@ -405,11 +419,20 @@ typedef struct __ExSTATISTICS__
 
     struct
     {
+#if 1
+//#define FTL_CHANNELS                                (1)
+//#define FTL_WAYS                                    (4)
+        unsigned int (*corrected)[1];
+        unsigned int (*leveldetected)[1];
+        unsigned int (*uncorrectable)[1];
+#else
         unsigned int (*corrected)[];
         unsigned int (*leveldetected)[];
         unsigned int (*uncorrectable)[];
-
+#endif
     } ecc_sector;
+
+    unsigned int (*readretry_count)[1];
 
 } ExSTATISTICS;
 #pragma pack()
