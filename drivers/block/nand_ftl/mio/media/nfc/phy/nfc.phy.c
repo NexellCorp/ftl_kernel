@@ -643,7 +643,7 @@ unsigned int NFC_PHY_GetEccParitySize(unsigned int _eccbits)
 #elif defined (__BUILD_MODE_X86_LINUX_DEVICE_DRIVER__)
     unsigned char pucValidEccList[] = {0}
 #elif defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__) || defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
-    unsigned char pucValidEccList[] = {4,6,8,12,24,40,60};
+    unsigned char pucValidEccList[] = {4,8,16,24,40,60};
 #endif
 
     for (i = 0; i < sizeof (pucValidEccList); ++i)

@@ -58,6 +58,35 @@
 #endif
 
 /******************************************************************************
+ *
+ ******************************************************************************/
+unsigned int NFC_PHY_GetEccBitsOfBlockInformation(unsigned int _data_bytes_per_page, unsigned int _spare_bytes_per_page, unsigned int _ecc_codeword_size, unsigned int _ecc_bits_correctability)
+{
+    unsigned int eccbits_per_blockinformation = 0;
+    unsigned char valid_ecc_list[] = {4,8,16,24,40,60};
+    unsigned int entire_page_size = _data_bytes_per_page + _spare_bytes_per_page;
+    unsigned int ecc_codeword_size = _ecc_codeword_size;
+    unsigned int ecc_units = _data_bytes_per_page / _ecc_codeword_size;
+    unsigned int ecc_data_parity_size = NFC_PHY_GetEccParitySize(_ecc_bits_correctability);
+    int i = 0;
+
+    // FTL Data & Block Information
+    entire_page_size -= ((ecc_codeword_size + ecc_data_parity_size) * ecc_units) + 8;
+
+    for (i = sizeof(valid_ecc_list)/sizeof(valid_ecc_list[0]) - 1; i >= 0; i--)
+    {
+        if (entire_page_size > NFC_PHY_GetEccParitySize(valid_ecc_list[i]))
+        {
+            // Get Block Information's ECC bit
+            eccbits_per_blockinformation = valid_ecc_list[i];
+            break;
+        }
+    }
+    
+    return eccbits_per_blockinformation;
+}
+
+/******************************************************************************
  * ONFI Board Members (2014.04.02)
  *
  *  - Intel Corporation
@@ -436,29 +465,16 @@ unsigned int NFC_PHY_ConfigOnfi(unsigned char * _id, unsigned int _nand, void * 
     {
         unsigned int  i = 0;
         unsigned int block_endurance_multiple = 1;
+        unsigned int ecc_codeword_size = 512;
+        unsigned int eccbits_per_blockinformation = 0;
 
         /**********************************************************************
          * Calc block information's ecc bits
          **********************************************************************/
-        unsigned char valid_ecc_list[] = {4,6,8,12,24,40,60};
-        unsigned int entire_page_size = onfi_param->_f.number_of_data_bytes_per_page + onfi_param->_f.number_of_spare_bytes_per_page;
-        unsigned int ecc_codeword_size = 512;
-        unsigned int ecc_units = onfi_param->_f.number_of_data_bytes_per_page / ecc_codeword_size;
-        unsigned int ecc_parity_size = NFC_PHY_GetEccParitySize(onfi_param->_f.number_of_bits_ecc_correctability);
-        unsigned int eccbits_per_blockinformation = 0;
-
-        // FTL Data & Block Information
-        entire_page_size -= ((ecc_codeword_size + ecc_parity_size) * ecc_units) + 8;
-
-        for (i = 0; i < 7; i++)
-        {
-            if (entire_page_size < NFC_PHY_GetEccParitySize(valid_ecc_list[i]))
-            {
-                // Get Block Information's ECC bit
-                eccbits_per_blockinformation = valid_ecc_list[i-1];
-                break;
-            }
-        }
+        eccbits_per_blockinformation = NFC_PHY_GetEccBitsOfBlockInformation(onfi_param->_f.number_of_data_bytes_per_page,
+                                                                            onfi_param->_f.number_of_spare_bytes_per_page,
+                                                                            ecc_codeword_size,
+                                                                            onfi_param->_f.number_of_bits_ecc_correctability);
 
         /**********************************************************************
          *
@@ -482,29 +498,16 @@ unsigned int NFC_PHY_ConfigOnfi(unsigned char * _id, unsigned int _nand, void * 
     {
         unsigned int  i = 0;
         unsigned int block_endurance_multiple = 1;
+        unsigned int ecc_codeword_size = __POW(1,onfi_ext_param->_f.ecc_codeword_size);
+        unsigned int eccbits_per_blockinformation = 0;
 
         /**********************************************************************
          * Calc block information's ecc bits
          **********************************************************************/
-        unsigned char valid_ecc_list[] = {4,6,8,12,24,40,60};
-        unsigned int entire_page_size = onfi_param->_f.number_of_data_bytes_per_page + onfi_param->_f.number_of_spare_bytes_per_page;
-        unsigned int ecc_codeword_size = __POW(1,onfi_ext_param->_f.ecc_codeword_size);
-        unsigned int ecc_units = onfi_param->_f.number_of_data_bytes_per_page / ecc_codeword_size;
-        unsigned int ecc_parity_size = NFC_PHY_GetEccParitySize(onfi_ext_param->_f.number_of_bits_ecc_correctability);
-        unsigned int eccbits_per_blockinformation = 0;
-
-        // FTL Data & Block Information
-        entire_page_size -= ((ecc_codeword_size + ecc_parity_size) * ecc_units) + 8;
-
-        for (i = 0; i < 7; i++)
-        {
-            if (entire_page_size < NFC_PHY_GetEccParitySize(valid_ecc_list[i]))
-            {
-                // Get Block Information's ECC bit
-                eccbits_per_blockinformation = valid_ecc_list[i-1];
-                break;
-            }
-        }
+        eccbits_per_blockinformation = NFC_PHY_GetEccBitsOfBlockInformation(onfi_param->_f.number_of_data_bytes_per_page,
+                                                                            onfi_param->_f.number_of_spare_bytes_per_page,
+                                                                            ecc_codeword_size,
+                                                                            onfi_ext_param->_f.number_of_bits_ecc_correctability);
 
         /**********************************************************************
          *
@@ -774,7 +777,10 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.number_of_bits_ecc_correctability = 40;
                     nand_config->_f.maindatabytes_per_eccunit         = 1024;
                     nand_config->_f.eccbits_per_maindata              = 40;
-                    nand_config->_f.eccbits_per_blockinformation      = 24;
+                    nand_config->_f.eccbits_per_blockinformation      = NFC_PHY_GetEccBitsOfBlockInformation(nand_config->_f.databytes_per_page,
+                                                                                                             nand_config->_f.sparebytes_per_page,
+                                                                                                             nand_config->_f.maindatabytes_per_eccunit,
+                                                                                                             nand_config->_f.number_of_bits_ecc_correctability);
                     nand_config->_f.block_endurance                   = 1000; // Spec Does Not Described !!
                     nand_config->_f.factorybadblocks_per_nand         = 100;
 
@@ -908,7 +914,10 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.number_of_bits_ecc_correctability = 40;
                     nand_config->_f.maindatabytes_per_eccunit         = 1024;
                     nand_config->_f.eccbits_per_maindata              = 40;
-                    nand_config->_f.eccbits_per_blockinformation      = 24;
+                    nand_config->_f.eccbits_per_blockinformation      = NFC_PHY_GetEccBitsOfBlockInformation(nand_config->_f.databytes_per_page,
+                                                                                                             nand_config->_f.sparebytes_per_page,
+                                                                                                             nand_config->_f.maindatabytes_per_eccunit,
+                                                                                                             nand_config->_f.number_of_bits_ecc_correctability);
                     nand_config->_f.block_endurance                   = 1000; // Spec Does Not Described !!
                     nand_config->_f.factorybadblocks_per_nand         = 100;
 
@@ -1042,7 +1051,10 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.number_of_bits_ecc_correctability = 40;
                     nand_config->_f.maindatabytes_per_eccunit         = 1024;
                     nand_config->_f.eccbits_per_maindata              = 40;
-                    nand_config->_f.eccbits_per_blockinformation      = 24;
+                    nand_config->_f.eccbits_per_blockinformation      = NFC_PHY_GetEccBitsOfBlockInformation(nand_config->_f.databytes_per_page,
+                                                                                                             nand_config->_f.sparebytes_per_page,
+                                                                                                             nand_config->_f.maindatabytes_per_eccunit,
+                                                                                                             nand_config->_f.number_of_bits_ecc_correctability);
                     nand_config->_f.block_endurance                   = 1000; // Spec Does Not Described !!
                     nand_config->_f.factorybadblocks_per_nand         = 115;
 
@@ -1176,7 +1188,10 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.number_of_bits_ecc_correctability = 40;
                     nand_config->_f.maindatabytes_per_eccunit         = 1024;
                     nand_config->_f.eccbits_per_maindata              = 40;
-                    nand_config->_f.eccbits_per_blockinformation      = 24;
+                    nand_config->_f.eccbits_per_blockinformation      = NFC_PHY_GetEccBitsOfBlockInformation(nand_config->_f.databytes_per_page,
+                                                                                                             nand_config->_f.sparebytes_per_page,
+                                                                                                             nand_config->_f.maindatabytes_per_eccunit,
+                                                                                                             nand_config->_f.number_of_bits_ecc_correctability);
                     nand_config->_f.block_endurance                   = 1000; // Spec Does Not Described !!
                     nand_config->_f.factorybadblocks_per_nand         = 115;
 
