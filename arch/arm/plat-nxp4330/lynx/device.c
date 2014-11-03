@@ -295,6 +295,20 @@ static struct platform_device nand_plat_device = {
 		.platform_data	= &nand_plat_data,
 	},
 };
+#else /* CONFIG_NEXELL_FTL */
+static struct resource nand_resource =
+{
+};
+
+static struct platform_device nand_plat_device = {
+	.name	= DEV_NAME_NAND,
+	.id		= -1,
+	//.num_resources	= ARRAY_SIZE(nand_resource),
+	//.resource		= nand_resource,
+	.dev	= {
+	//	.platform_data	= &nand_plat_data,
+	},
+};
 #endif	/* CONFIG_MTD_NAND_NEXELL */
 
 /*------------------------------------------------------------------------------
@@ -1503,7 +1517,7 @@ void __init nxp_board_devices_register(void)
 	i2c_register_board_info(FT5X0X_I2C_BUS, &ft5x0x_i2c_bdi, 1);
 #endif
 
-#if defined(CONFIG_MTD_NAND_NEXELL)
+#if defined(CONFIG_MTD_NAND_NEXELL) || defined (CONFIG_NEXELL_FTL)
 	platform_device_register(&nand_plat_device);
 #endif
 

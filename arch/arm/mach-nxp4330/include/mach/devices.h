@@ -226,9 +226,12 @@ struct nxp_key_plat_data {
  * NAND platform data
  */
 struct nxp_nand_plat_data {
+#if defined(CONFIG_MTD_NAND_NEXELL)
     struct mtd_partition * parts;
     int nr_parts;
     int chip_delay;
+#else /* CONFIG_NEXELL_FTL */
+#endif
 };
 
 /*

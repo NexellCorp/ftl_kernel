@@ -703,8 +703,65 @@ static void __exit mio_exit(void)
     printk(KERN_INFO "mio.block:\n");
 }
 
-module_init(mio_init);
-module_exit(mio_exit);
+
+
+
+
+
+
+
+
+
+static int nand_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	media_close();
+   
+	return 0;
+}
+
+
+static int nand_resume(struct platform_device *pdev)
+{
+	if ((mio_dev.capacity = media_open()) < 0)
+    {
+        int ret = mio_dev.capacity;
+        mio_dev.capacity = 0;
+
+        return ret;
+    }
+
+	return 0;
+}
+
+
+static struct platform_driver nand_driver = {
+	//.probe		= nand_probe,
+	//.remove		= nand_remove,
+	.driver		= {
+	.name		= DEV_NAME_NAND,
+	.owner		= THIS_MODULE,
+	},
+	.suspend = nand_suspend,
+	.resume = nand_resume,
+};
+
+static int __init nand_init(void)
+{
+	platform_driver_register(&nand_driver);
+	mio_init();
+
+	return 0;
+}
+
+static void __exit nand_exit(void)
+{
+	mio_exit();
+	platform_driver_unregister(&nand_driver);
+}
+
+
+module_init(nand_init);
+module_exit(nand_exit);
 MODULE_LICENSE("EWS");
 MODULE_AUTHOR("SD.LEE");
 MODULE_DESCRIPTION("Media I/O Block Driver");

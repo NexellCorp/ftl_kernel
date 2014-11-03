@@ -51,6 +51,7 @@
 
 #include <mach/devices.h>
 #include <mach/soc.h>
+#include <mach/platform.h>
 
 #elif defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
 #include <common.h>
@@ -839,16 +840,16 @@ unsigned int NFC_PHY_Init(unsigned int _scan_format)
 
 #if defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__)
     __print = printk;
-    nfcI = (MCUS_I *)0xF0051000;
-    nfcShadowI = (NFC_SHADOW_I *)0xF0500000;
-    nfcShadowI16 = (NFC_SHADOW_I16 *)0xF0500000;
-    nfcShadowI32 = (NFC_SHADOW_I32 *)0xF0500000;
+    nfcI = (MCUS_I *)IO_ADDRESS(PHY_BASEADDR_MCUSTOP_MODULE);
+    nfcShadowI = (NFC_SHADOW_I *)__PB_IO_MAP_NAND_VIRT;
+    nfcShadowI16 = (NFC_SHADOW_I16 *)__PB_IO_MAP_NAND_VIRT;
+    nfcShadowI32 = (NFC_SHADOW_I32 *)__PB_IO_MAP_NAND_VIRT;
 #elif defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
     __print = printf;
-    nfcI = (MCUS_I *)0xC0051000;
-    nfcShadowI = (NFC_SHADOW_I *)0x2C000000;
-    nfcShadowI16 = (NFC_SHADOW_I16 *)0x2C000000;
-    nfcShadowI32 = (NFC_SHADOW_I32 *)0x2C000000;
+    nfcI = (MCUS_I *)IO_ADDRESS(PHY_BASEADDR_MCUSTOP_MODULE);
+    nfcShadowI = (NFC_SHADOW_I *)CONFIG_SYS_NAND_BASE;
+    nfcShadowI16 = (NFC_SHADOW_I16 *)CONFIG_SYS_NAND_BASE;
+    nfcShadowI32 = (NFC_SHADOW_I32 *)CONFIG_SYS_NAND_BASE;
 #endif
 
     NFC_PHY_DeInit();
