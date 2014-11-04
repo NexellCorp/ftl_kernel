@@ -703,38 +703,29 @@ static void __exit mio_exit(void)
     printk(KERN_INFO "mio.block:\n");
 }
 
-
-
-
-
-
-
-
-
-
-static int nand_suspend(struct platform_device *pdev, pm_message_t state)
+/******************************************************************************
+ *
+ ******************************************************************************/
+static int nand_suspend(struct platform_device * pdev, pm_message_t state)
 {
-	media_close();
-   
+    media_suspend();
 	return 0;
 }
 
-
+/******************************************************************************
+ *
+ ******************************************************************************/
 static int nand_resume(struct platform_device *pdev)
 {
-	if ((mio_dev.capacity = media_open()) < 0)
-    {
-        int ret = mio_dev.capacity;
-        mio_dev.capacity = 0;
-
-        return ret;
-    }
-
+    media_resume();
 	return 0;
 }
 
-
-static struct platform_driver nand_driver = {
+/******************************************************************************
+ *
+ ******************************************************************************/
+static struct platform_driver nand_driver =
+{
 	//.probe		= nand_probe,
 	//.remove		= nand_remove,
 	.driver		= {
@@ -745,6 +736,9 @@ static struct platform_driver nand_driver = {
 	.resume = nand_resume,
 };
 
+/******************************************************************************
+ *
+ ******************************************************************************/
 static int __init nand_init(void)
 {
 	platform_driver_register(&nand_driver);

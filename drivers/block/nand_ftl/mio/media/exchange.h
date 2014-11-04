@@ -442,11 +442,14 @@ typedef struct __ExNFC__
 {
     unsigned int (*fnInit)(unsigned int _scan_format);
     void (*fnDeInit)(void);
+    void (*fnSuspend)(void);
+    void (*fnResume)(void);
 
     int  (*fnEccInfoInit)(unsigned int _max_channels, unsigned int _max_ways, const unsigned char *_way_map);
     void (*fnEccInfoDeInit)(void);
 
     void (*fnGetFeatures)(unsigned int * _max_channel, unsigned int * _max_way, void * _nand_config);
+    void (*fnAdjustFeatures)(void);
     void (*fnSetFeatures)(unsigned int _max_channel, unsigned int _max_way, void * _nand_config);
 
     void (*fnDelay)(unsigned int _tDelay);

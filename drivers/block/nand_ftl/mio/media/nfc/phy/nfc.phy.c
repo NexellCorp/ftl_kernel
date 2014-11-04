@@ -857,7 +857,10 @@ unsigned int NFC_PHY_Init(unsigned int _scan_format)
     NFC_PHY_ChipSelect(0, 0, __FALSE);
     NFC_PHY_ChipSelect(0, 1, __FALSE);
 
+    Exchange.nfc.fnSuspend = NFC_PHY_Suspend;
+    Exchange.nfc.fnResume = NFC_PHY_Resume;
     Exchange.nfc.fnGetFeatures = NFC_PHY_GetFeatures;
+    Exchange.nfc.fnAdjustFeatures = NFC_PHY_AdjustFeatures;
     Exchange.nfc.fnSetFeatures = NFC_PHY_SetFeatures;
     Exchange.nfc.fnDelay = NFC_PHY_tDelay;
     Exchange.nfc.fnReadId = NFC_PHY_ReadId;
@@ -952,6 +955,27 @@ void NFC_PHY_DeInit(void)
 #endif
 
     if (Exchange.debug.nfc.phy.operation)  {__print("EWS.NFC.PHY: DeInit\n"); }
+}
+
+void NFC_PHY_Suspend(void)
+{
+    /* Nothing To Do */
+}
+
+void NFC_PHY_Resume(void)
+{
+    int way = 0;
+
+    NFC_PHY_SporInit();
+    NFC_PHY_SetAutoResetEnable(__FALSE);
+    NFC_PHY_ClearInterruptPending(0);
+    NFC_PHY_SetInterruptEnableAll(__FALSE);
+    NFC_PHY_AdjustFeatures();
+
+    for (way = 0; way < *Exchange.ftl.Way; way++)
+    {
+        NFC_PHY_NandReset(0, way);
+    }
 }
 
 /******************************************************************************

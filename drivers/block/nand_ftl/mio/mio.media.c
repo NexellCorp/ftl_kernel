@@ -183,6 +183,37 @@ void media_close(void)
 /******************************************************************************
  *
  ******************************************************************************/
+void media_suspend(void)
+{
+    printk(KERN_INFO "media_suspend: Start\n");
+#if defined (__MEDIA_ON_RAM__)
+#elif defined (__MEDIA_ON_NAND__)
+    media_powerdown(NULL);
+    while (!media_is_idle(NULL));
+
+    Exchange.nfc.fnSuspend();
+#endif
+    printk(KERN_INFO "media_suspend: Done\n");
+}
+
+/******************************************************************************
+ *
+ ******************************************************************************/
+void media_resume(void)
+{
+    printk(KERN_INFO "media_resume: Start\n");
+
+#if defined (__MEDIA_ON_RAM__)
+#elif defined (__MEDIA_ON_NAND__)
+    Exchange.nfc.fnResume();
+#endif
+
+    printk(KERN_INFO "media_resume: Done\n");
+}
+
+/******************************************************************************
+ *
+ ******************************************************************************/
 void media_write(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_state)
 {
     sector_t lba = _lba;
