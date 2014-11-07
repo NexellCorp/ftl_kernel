@@ -63,13 +63,7 @@
 /******************************************************************************
  *
  ******************************************************************************/
-#define MIOSMART_PART_USER                    (1)
-#define MIOSMART_PART_ADMIN1                  (2)
-#define MIOSMART_PART_ADMIN2                  (3)
-
-/******************************************************************************
- *
- ******************************************************************************/
+#pragma pack(1)
 typedef struct __MIO_SMART_CE_DATA__
 {
 	unsigned int  this_size;
@@ -83,12 +77,18 @@ typedef struct __MIO_SMART_CE_DATA__
 
     } ecc_sector;
 
-	unsigned readretry_count;
+    unsigned int writefail_count;
+    unsigned int erasefail_count;
+	unsigned int readretry_count;
+
+	unsigned int reserved[4];
 
 	unsigned int crc32;
 
 } MIO_SMART_CE_DATA;
+#pragma pack()
 
+#pragma pack(1)
 typedef struct __MIO_SMART_COMMON_DATA__
 {
 	unsigned int  this_size;
@@ -99,9 +99,12 @@ typedef struct __MIO_SMART_COMMON_DATA__
 	unsigned long long write_bytes;
 	unsigned long long write_sectors;
 
+	unsigned int reserved[10];
+
 	unsigned int crc32;
 
 } MIO_SMART_COMMON_DATA;
+#pragma pack()
 
 typedef struct __MIO_SMART_INFO__
 {
@@ -113,6 +116,8 @@ typedef struct __MIO_SMART_INFO__
 
 	MIO_SMART_CE_DATA **nand_accumulate;  // [ways][channels]
 	MIO_SMART_CE_DATA **nand_current;     // [ways][channels]
+
+	unsigned int volatile_writesectors;
 
   //unsigned int *wearlevel_data;
 
@@ -127,9 +132,12 @@ MIO_SMART_EXT MIO_SMART_INFO MioSmartInfo;
  *
  ******************************************************************************/
 MIO_SMART_EXT int miosmart_init(unsigned int _max_channels, unsigned int _max_ways);
+MIO_SMART_EXT int miosmart_is_init(void);
 MIO_SMART_EXT void miosmart_deinit(void);
-MIO_SMART_EXT int miosmart_update(void);
+
+MIO_SMART_EXT int miosmart_update_eccstatus(void);
 MIO_SMART_EXT int miosmart_load(void);
+MIO_SMART_EXT int miosmart_save(void);
 
 MIO_SMART_EXT void miosmart_get_erasecount(unsigned int *min, unsigned int *max, unsigned int *sum, unsigned int average[]);
 MIO_SMART_EXT unsigned int miosmart_get_total_usableblocks(void);

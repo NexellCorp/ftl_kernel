@@ -593,7 +593,7 @@ unsigned int NFC_PHY_EccCorrection(char         * _error_at,
 
                 if (Exchange.debug.nfc.phy.info_ecc_correction)
                 {
-                    __print("%s\n", error_at); memset((void *)error_at, 0, strlen(error_at));
+                    if (NULL != error_at) { __print("%s\n", error_at); error_at = NULL; }
                     __print("Correction: location[%d] = %08x\n", 0, location[k]);
                     __print("Correction: err_read[location[%d]/32]   %08x\n", k, err_read[location[k]/32]);
                     __print("Correction: __POW(1,location[%d]%%32]  ^ %08x\n", k, __POW(1,location[k]%32));
@@ -613,7 +613,7 @@ unsigned int NFC_PHY_EccCorrection(char         * _error_at,
 
             if (Exchange.debug.nfc.phy.info_ecc_corrected)
             {
-                __print("%s\n", error_at);
+                if (NULL != error_at) { __print("%s\n", error_at); error_at = NULL; }
                 __print("Corrected: row(%04d),col(%04d): count(%d)\n", row, col, ecc_error_count);
             }
         }

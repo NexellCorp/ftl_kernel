@@ -379,6 +379,21 @@ typedef struct __ExBUFFER__
 /******************************************************************************
  *
  ******************************************************************************/
+#pragma pack(1)
+ typedef struct __DEVICE_SUMMARY__
+{
+    unsigned int uiAccumEccError;
+    unsigned int uiAccumEccLevel;
+    unsigned int uiAccumEccSector;
+    unsigned int uiAccumEccCount;
+    unsigned char ucAccumEccMax;
+    unsigned char reserved[3];
+    unsigned short usAccumWriteFail;
+    unsigned short usAccumEraseFail;
+    unsigned int uiAccumReadRetry;
+
+} DEVICE_SUMMARY;
+#pragma pack()
 
 #pragma pack(1)
 typedef struct __ExSTATISTICS__
@@ -417,22 +432,7 @@ typedef struct __ExSTATISTICS__
 
     } ios;
 
-    struct
-    {
-#if 1
-//#define FTL_CHANNELS                                (1)
-//#define FTL_WAYS                                    (4)
-        unsigned int (*corrected)[1];
-        unsigned int (*leveldetected)[1];
-        unsigned int (*uncorrectable)[1];
-#else
-        unsigned int (*corrected)[];
-        unsigned int (*leveldetected)[];
-        unsigned int (*uncorrectable)[];
-#endif
-    } ecc_sector;
-
-    unsigned int (*readretry_count)[1];
+    DEVICE_SUMMARY **device_summary; // [FTL_WAYS][FTL_CHANNELS];
 
 } ExSTATISTICS;
 #pragma pack()

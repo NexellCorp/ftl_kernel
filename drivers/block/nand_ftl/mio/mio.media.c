@@ -36,7 +36,7 @@ static u8 * media_on_ram;
 #elif defined (__MEDIA_ON_NAND__)
 #include "media/exchange.h"
 #include "mio.block.h"
-
+#include "mio.smart.h"
 #endif
 
 /******************************************************************************
@@ -185,15 +185,12 @@ void media_close(void)
  ******************************************************************************/
 void media_suspend(void)
 {
-    printk(KERN_INFO "media_suspend: Start\n");
 #if defined (__MEDIA_ON_RAM__)
 #elif defined (__MEDIA_ON_NAND__)
     media_powerdown(NULL);
     while (!media_is_idle(NULL));
-
     Exchange.nfc.fnSuspend();
 #endif
-    printk(KERN_INFO "media_suspend: Done\n");
 }
 
 /******************************************************************************
@@ -201,14 +198,10 @@ void media_suspend(void)
  ******************************************************************************/
 void media_resume(void)
 {
-    printk(KERN_INFO "media_resume: Start\n");
-
 #if defined (__MEDIA_ON_RAM__)
 #elif defined (__MEDIA_ON_NAND__)
     Exchange.nfc.fnResume();
 #endif
-
-    printk(KERN_INFO "media_resume: Done\n");
 }
 
 /******************************************************************************
@@ -235,7 +228,7 @@ void media_write(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_s
 
         if (-1 == wcidxfar)
         {
-            Exchange.ftl.fnMain();
+            media_super();
         }
         else
         {
@@ -293,7 +286,7 @@ void media_write(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_s
     Exchange.statistics.ios.accumulate.write += (seccnt << 9);
     Exchange.statistics.ios.accumulate.write_seccnt += seccnt;
 
-    Exchange.ftl.fnMain();
+    media_super();
 #endif
 }
 
@@ -321,7 +314,7 @@ void media_read(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_st
 
         if (-1 == rbidxfar)
         {
-            Exchange.ftl.fnMain();
+            media_super();
         }
         else
         {
@@ -489,23 +482,31 @@ void media_read(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_st
         }
         else
         {
-            Exchange.ftl.fnMain();
+            media_super();
         }
     }
 
-    Exchange.ftl.fnMain();
+    media_super();
 #endif
 }
 
 /******************************************************************************
  *
  ******************************************************************************/
-void media_super(void)
+int media_super(void)
 {
+    int ret = -1;
+
 #if defined (__MEDIA_ON_RAM__)
 #elif defined (__MEDIA_ON_NAND__)
-    if (Exchange.ftl.fnMain) { Exchange.ftl.fnMain(); }
+    if (Exchange.ftl.fnMain)
+    {
+        Exchange.ftl.fnMain();
+        ret = 0;
+    }
 #endif
+
+    return ret;
 }
 
 /******************************************************************************
@@ -515,7 +516,7 @@ void media_flush(void * _io_state)
 {
     while (1)
     {
-        Exchange.ftl.fnMain();
+        media_super();
 
         if (Exchange.ftl.fnIsReady())
         {
@@ -532,7 +533,7 @@ void media_background(void * _io_state)
 {
     while (1)
     {
-        Exchange.ftl.fnMain();
+        media_super();
 
         if (Exchange.ftl.fnIsReady())
         {
@@ -549,7 +550,7 @@ void media_standby(void * _io_state)
 {
     while (1)
     {
-        Exchange.ftl.fnMain();
+        media_super();
 
         if (Exchange.ftl.fnIsReady())
         {
@@ -566,7 +567,7 @@ void media_powerdown(void * _io_state)
 {
     while (1)
     {
-        Exchange.ftl.fnMain();
+        media_super();
 
         if (Exchange.ftl.fnIsReady())
         {
@@ -583,7 +584,7 @@ int media_is_idle(void * _io_state)
 {
     if (!Exchange.ftl.fnIsIdle())
     {
-        Exchange.ftl.fnMain();
+        media_super();
         return 0;
     }
 

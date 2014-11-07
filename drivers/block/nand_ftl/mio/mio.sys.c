@@ -64,12 +64,13 @@ char * strtok(register char *s, register const char *delim);
 
 static ssize_t miosys_write(struct file * file, const char * buf, size_t count, loff_t * ppos)
 {
-    char * cmd_buf = (char *)vmalloc(count);
+    char * cmd_buf = (char *)vmalloc(count+1);
+    memset(cmd_buf, 0, count+1);
     if (copy_from_user(cmd_buf, buf, count)) { return -EINVAL; }
 
   //DBG_MIOSYS(KERN_INFO "miosys_write(file:0x%08x buf:0x%08x count:%d ppos:0x%08x)",
-  //          (unsigned int)file, (unsigned int)buf, count, (unsigned int)ppos);
-
+  //           (unsigned int)file, (unsigned int)buf, count, (unsigned int)ppos);
+               
     // Command Parse
     {
         enum
@@ -105,14 +106,12 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
 
         } state = MIOSYS_NONE;
 
-        char delim[] = " ";
+        char delim[] = " \n";
         char * token = strtok(cmd_buf, delim);
         int breaker = 0;
 
         while ((token != NULL) && !breaker)
         {
-            printk("token = %s\n", token);
-
             switch (state)
             {
                 case MIOSYS_NONE:
@@ -196,7 +195,8 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
                 default:
                 {
                     breaker = 1;
-                }
+                } break;
+
             }
 
             token = strtok(NULL, delim);
@@ -214,7 +214,16 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
             {
                 miosys_print_wearleveldata();
             } break;
+
+            default:
+            {
+            } break;
         }
+    }
+
+    if (cmd_buf)
+    {
+        vfree(cmd_buf);
     }
 
     *ppos = count;
@@ -310,30 +319,53 @@ int miosys_print_smart(void)
 {
     // ECC corrected
     unsigned int *pcurrent = 0;
-  //unsigned int *paccumulate = 0;
+    unsigned int *paccumulate = 0;
     MIO_SMART_CE_DATA *pnand_accumulate = 0;
     MIO_SMART_CE_DATA *pnand_current = 0;
     unsigned int channel = 0, way = 0;
     unsigned int sum_erasecount = 0, sum_usableblocks = 0;
     unsigned int min_erasecount = 0xFFFFFFFF, max_erasecount = 0;
+    unsigned int accumulated_sum_readretrycount = 0;
     unsigned int average_erasecount[2] = {123,456};
 
+    if (!miosmart_is_init())
     {
-        miosmart_init(*Exchange.ftl.Channel, *Exchange.ftl.Way);
-        miosmart_update();
+        DBG_MIOSYS(KERN_INFO "miosys_print_smart: miosmart is not inited!");
+        return -1;
     }
+
+    miosmart_update_eccstatus();
 
     DBG_MIOSYS(KERN_INFO "< SMART INFORMATION >");
 
     miosmart_get_erasecount(&min_erasecount, &max_erasecount, &sum_erasecount, average_erasecount);
     sum_usableblocks = miosmart_get_total_usableblocks();
 
-    DBG_MIOSYS(KERN_INFO " sum of erasecount:\t%d", sum_erasecount);
-    DBG_MIOSYS(KERN_INFO " sum of usable blocks:\t%d", sum_usableblocks);
-    DBG_MIOSYS(KERN_INFO " max erasecount:\t\t%d", max_erasecount);
-    DBG_MIOSYS(KERN_INFO " min erasecount:\t\t%d", min_erasecount);
-    DBG_MIOSYS(KERN_INFO " average erasecount:\t%d.%02d", average_erasecount[0], average_erasecount[1]);
-    DBG_MIOSYS(KERN_INFO " sum of readretrycount:\t%d", *Exchange.ftl.ReadRetryCount);
+    for (way=0; way < *Exchange.ftl.Way; way++)
+    {
+        for (channel=0; channel < *Exchange.ftl.Channel; channel++)
+        {
+            pnand_accumulate = &(MioSmartInfo.nand_accumulate[way][channel]);
+            if (pnand_accumulate)
+            {
+                accumulated_sum_readretrycount += pnand_accumulate->readretry_count;
+            }
+        }
+    }
+
+    DBG_MIOSYS(KERN_INFO " current read bytes:      %8lldMB (%lld sectors)", (MioSmartInfo.io_current.read_bytes >> 20), MioSmartInfo.io_current.read_sectors);
+    DBG_MIOSYS(KERN_INFO " current write bytes:     %8lldMB (%lld sectors)", (MioSmartInfo.io_current.write_bytes >> 20), MioSmartInfo.io_current.write_sectors);
+    DBG_MIOSYS(KERN_INFO " accumulated read bytes:  %8lldMB (%lld sectors)", (MioSmartInfo.io_accumulate.read_bytes >> 20), MioSmartInfo.io_accumulate.read_sectors);
+    DBG_MIOSYS(KERN_INFO " accumulated write bytes: %8lldMB (%lld sectors)", (MioSmartInfo.io_accumulate.write_bytes >> 20), MioSmartInfo.io_accumulate.write_sectors);
+
+    DBG_MIOSYS(KERN_INFO " sum of erasecount:     %u", sum_erasecount);
+    DBG_MIOSYS(KERN_INFO " sum of usable blocks:  %u", sum_usableblocks);
+    DBG_MIOSYS(KERN_INFO " max erasecount:        %u", max_erasecount);
+    DBG_MIOSYS(KERN_INFO " min erasecount:        %u", min_erasecount);
+    DBG_MIOSYS(KERN_INFO " average erasecount:    %u.%02u", average_erasecount[0], average_erasecount[1]);
+    DBG_MIOSYS(KERN_INFO " current readretrycount:     %u", *Exchange.ftl.ReadRetryCount);
+    DBG_MIOSYS(KERN_INFO " accumulated readretrycount: %u", accumulated_sum_readretrycount);
+
 
     // ECC info
     for (way=0; way < *Exchange.ftl.Way; way++)
@@ -351,35 +383,37 @@ int miosys_print_smart(void)
 
             // ECC corrected
             pcurrent = &(pnand_current->ecc_sector.corrected);
-          //paccumulate = &(pnand_accumulate->ecc_sector.corrected);
-          //DBG_MIOSYS(KERN_INFO "  ECC corrected sectors: current:%d, accumulated:%d", *pcurrent, *paccumulate);
-            DBG_MIOSYS(KERN_INFO "  ECC corrected sectors:     \t%d", *pcurrent);
+            paccumulate = &(pnand_accumulate->ecc_sector.corrected);
+            DBG_MIOSYS(KERN_INFO "  ECC corrected sectors:      current:%9u, accumulated:%9u", *pcurrent, *paccumulate);
 
             // ECC leveldetected
             pcurrent = &(pnand_current->ecc_sector.leveldetected);
-          //paccumulate = &(pnand_accumulate->ecc_sector.leveldetected);
-          //DBG_MIOSYS(KERN_INFO "  ECC leveldetected sectors: current:%d accumulated:%d", *pcurrent, *paccumulate);
-            DBG_MIOSYS(KERN_INFO "  ECC leveldetected sectors: \t%d", *pcurrent);
+            paccumulate = &(pnand_accumulate->ecc_sector.leveldetected);
+            DBG_MIOSYS(KERN_INFO "  ECC leveldetected sectors:  current:%9u, accumulated:%9u", *pcurrent, *paccumulate);
 
             // ECC uncorrectable
             pcurrent = &(pnand_current->ecc_sector.uncorrectable);
-          //paccumulate = &(pnand_accumulate->ecc_sector.uncorrectable);
-          //DBG_MIOSYS(KERN_INFO "  ECC uncorrectable sectors: current:%d, accumulated:%d", *pcurrent, *paccumulate);
-            DBG_MIOSYS(KERN_INFO "  ECC uncorrectable sectors: \t%d", *pcurrent);
+            paccumulate = &(pnand_accumulate->ecc_sector.uncorrectable);
+            DBG_MIOSYS(KERN_INFO "  ECC uncorrectable sectors:  current:%9u, accumulated:%9u", *pcurrent, *paccumulate);
+
+            // write fail
+            pcurrent = &(pnand_current->writefail_count);
+            paccumulate = &(pnand_accumulate->writefail_count);
+            DBG_MIOSYS(KERN_INFO "  write operation fail count: current:%9u, accumulated:%9u", *pcurrent, *paccumulate);
+
+            // erase fail
+            pcurrent = &(pnand_current->erasefail_count);
+            paccumulate = &(pnand_accumulate->erasefail_count);
+            DBG_MIOSYS(KERN_INFO "  erase operation fail count: current:%9u, accumulated:%9u", *pcurrent, *paccumulate);
 
             // read retry count
             pcurrent = &(pnand_current->readretry_count);
-          //paccumulate = &(pnand_accumulate->readretry_count);
-          //DBG_MIOSYS(KERN_INFO "  Read retry count: current:%d, accumulated:%d", *pcurrent, *paccumulate);
-            DBG_MIOSYS(KERN_INFO "  Read retry count:        \t%d", *pcurrent);
+            paccumulate = &(pnand_accumulate->readretry_count);
+            DBG_MIOSYS(KERN_INFO "  Read retry count:           current:%9u, accumulated:%9u", *pcurrent, *paccumulate);
 
         }
     }
     DBG_MIOSYS(KERN_INFO " \n");
-
-    {
-        miosmart_deinit();
-    }
 
     return 0;
 }
@@ -401,6 +435,13 @@ int miosys_print_wearleveldata(void)
     unsigned int average_erasecount[2] = {0,0};
     unsigned char isvalid_erasecount = 0;
     unsigned int validnum_erasecount = 0, sum_erasecount = 0;
+
+
+    if (!miosmart_is_init())
+    {
+        DBG_MIOSYS(KERN_INFO "miosys_print_smart: miosmart is not inited!");
+        return -1;
+    }
 
     // create buffer
     Exchange.ftl.fnGetNandInfo(&nand);
@@ -436,19 +477,19 @@ int miosys_print_wearleveldata(void)
 
                 switch (attribute)
                 {
-                    case 0x2:
-                    case 0x3:
-                    case 0x4:
-                    case 0x5:
-                    case 0x6:
-                    case 0x7:
+                    case BLOCK_TYPE_UPDATE_SEQUENT:
+                    case BLOCK_TYPE_UPDATE_RANDOM:
+                    case BLOCK_TYPE_DATA_HOT:
+                    case BLOCK_TYPE_DATA_HOT_BAD:
+                    case BLOCK_TYPE_DATA_COLD:
+                    case BLOCK_TYPE_DATA_COLD_BAD:
                     {
                         if (!partition) { DBG_MIOSYS(KERN_INFO " BLOCK %5d, EraseCount(%5d), DATA",         blockindex, erasecount); isvalid_erasecount = 1; }
                         else            { DBG_MIOSYS(KERN_INFO " BLOCK %5d, EraseCount(%5d), DATA (ADMIN)", blockindex, erasecount); isvalid_erasecount = 1; }
                     } break;
 
-                    case 0x8: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, EraseCount(%5d), SYSTEM (M)", blockindex, erasecount); isvalid_erasecount = 1; } break;
-                    case 0x9: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, EraseCount(%5d), FREE",       blockindex, erasecount); isvalid_erasecount = 1; } break;
+                    case BLOCK_TYPE_MAPLOG: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, EraseCount(%5d), SYSTEM (M)", blockindex, erasecount); isvalid_erasecount = 1; } break;
+                    case BLOCK_TYPE_FREE: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, EraseCount(%5d), FREE",       blockindex, erasecount); isvalid_erasecount = 1; } break;
                     case 0xA:
                     {
                         switch (sub_attribute)
@@ -456,12 +497,12 @@ int miosys_print_wearleveldata(void)
                             case 0x7: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, PROHIBIT",       blockindex); } break;
                             case 0x8: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, CONFIG",         blockindex); } break;
                             case 0x9: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, SYSTEM (RETRY)", blockindex); } break;
-                            case 0xA: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, BAD (Initial)",  blockindex); badblock_count++; } break;
-                            case 0xB: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, BAD (Factory)",  blockindex); badblock_count++; } break;
-                            case 0xC: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, BAD (Runtime)",  blockindex); badblock_count++; } break;
-                            case 0xD: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, EraseCount(%5d), SYSTEM (ROOT)",  blockindex, erasecount); isvalid_erasecount = 1; } break;
-                            case 0xE: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, SYSTEM (ENED)",  blockindex); } break;
-                            case 0xF: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, SYSTEM (FW)",    blockindex); } break;
+                            case BLOCK_TYPE_IBAD: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, BAD (Initial)",  blockindex); badblock_count++; } break;
+                            case BLOCK_TYPE_FBAD: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, BAD (Factory)",  blockindex); badblock_count++; } break;
+                            case BLOCK_TYPE_RBAD: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, BAD (Runtime)",  blockindex); badblock_count++; } break;
+                            case BLOCK_TYPE_ROOT: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, SYSTEM (ROOT)",  blockindex); } break;
+                            case BLOCK_TYPE_ENED: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, SYSTEM (ENED)",  blockindex); } break;
+                            case BLOCK_TYPE_FIRM: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, SYSTEM (FW)",    blockindex); } break;
                             default:  { DBG_MIOSYS(KERN_INFO " BLOCK %5d, SYSTEM (0x%x)",  blockindex, sub_attribute); } break;
                         }
                     } break;
@@ -471,15 +512,8 @@ int miosys_print_wearleveldata(void)
                 // erasecount: max/min/average
                 if (isvalid_erasecount)
                 {
-                    if (erasecount < min_erasecount)
-                    {
-                        min_erasecount = erasecount;
-                    }
-
-                    if (erasecount > max_erasecount)
-                    {
-                        max_erasecount = erasecount;
-                    }
+                    if (erasecount < min_erasecount) { min_erasecount = erasecount; }
+                    if (erasecount > max_erasecount) { max_erasecount = erasecount; }
 
                     sum_erasecount += erasecount;
                     validnum_erasecount += 1;
@@ -492,6 +526,7 @@ int miosys_print_wearleveldata(void)
                 average_erasecount[1] = ((sum_erasecount % validnum_erasecount) * 100) / validnum_erasecount;
             }
  
+            DBG_MIOSYS(KERN_INFO "bad blocks %d", badblock_count);
             DBG_MIOSYS(KERN_INFO "max erasecount %5d", max_erasecount);
             DBG_MIOSYS(KERN_INFO "min erasecount %5d", min_erasecount);
             DBG_MIOSYS(KERN_INFO "average erasecount %d.%02d", average_erasecount[0], average_erasecount[1]);

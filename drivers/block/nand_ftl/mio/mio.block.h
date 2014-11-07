@@ -78,6 +78,12 @@
  ******************************************************************************/
 struct mio_state
 {
+    struct
+    {
+        unsigned int suspending;
+
+    } power;
+
     // MIO Background Jobs
     struct
     {
@@ -87,22 +93,22 @@ struct mio_state
         // time
         struct
         {
-            u64 ecccheck;
             u64 statistics;
             u64 flush;
             u64 standby;
             u64 bgjobs;
+            u64 save_smart;
 
         } t;
 
         // event
         struct
         {
-            unsigned int ecccheck;
             unsigned int statistics;
             unsigned int flush;
             unsigned int standby;
             unsigned int bgjobs;
+            unsigned int save_smart;
 
         } e;
 
@@ -115,8 +121,11 @@ struct mio_state
         struct request_queue * rq;
         spinlock_t queue_lock;
 
-        spinlock_t lock;
-        struct mutex thread_mutex;
+#define MIO_IDLE        (0)
+#define MIO_BACKGROUND  (1)
+#define MIO_SUPER       (2)
+#define MIO_REQ_BUSY    (3)
+        unsigned short status;
 
         struct
         {
