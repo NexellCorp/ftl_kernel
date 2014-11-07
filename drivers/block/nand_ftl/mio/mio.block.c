@@ -765,16 +765,17 @@ static int nand_resume(struct platform_device *pdev)
 /******************************************************************************
  *
  ******************************************************************************/
+static SIMPLE_DEV_PM_OPS(nand_pmops, nand_suspend, nand_resume);
+
 static struct platform_driver nand_driver =
 {
-	//.probe		= nand_probe,
-	//.remove		= nand_remove,
 	.driver		= {
 	.name		= DEV_NAME_NAND,
+	.pm			= &nand_pmops,
 	.owner		= THIS_MODULE,
 	},
-	.suspend = nand_suspend,
-	.resume = nand_resume,
+	//.suspend = nand_suspend,
+	//.resume = nand_resume,
 };
 
 /******************************************************************************
