@@ -287,12 +287,15 @@ void media_write(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_s
     Exchange.statistics.ios.accumulate.write_seccnt += seccnt;
 
     {
+		media_super();
+#if 0
         unsigned int super_loop = 40;
 
         for (; super_loop; super_loop--)
         {
             media_super();
         }
+#endif
     }
 #endif
 }
