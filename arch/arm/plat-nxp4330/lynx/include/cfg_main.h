@@ -254,6 +254,12 @@
 #define CFG_PWR_WAKEUP_SRC_ALIVE5				CFALSE
 #define CFG_PWR_WAKEUP_MOD_ALIVE5				PWR_DECT_FALLINGEDGE
 
+/*
+ * Wakeup Source : RTC ALARM
+ * ifndef Enable ALARM Wakeup
+ */
+#define	CFG_PWR_WAKEUP_SRC_ALARM				CTRUE
+
 //------------------------------------------------------------------------------
 // Static Bus #0 ~ #9, NAND, IDE configuration
 //------------------------------------------------------------------------------
