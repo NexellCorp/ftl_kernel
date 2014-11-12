@@ -45,7 +45,6 @@
 #define VSYSDATAH_REG	0x70
 #define VSYSDATAL_REG	0x71
 
-#define CHGCTL1_REG		0xB3
 #define	REGISET1_REG	0xB6
 #define	REGISET2_REG	0xB7
 #define	CHGISET_REG		0xB8
@@ -131,7 +130,7 @@ enum InputPowerType {
 	INPUT_POWER_TYPE_ADP = 0,			// Support only VADP. Do not supported USB ADP.
 	INPUT_POWER_TYPE_UBC,				// Support only VUSB. (USB connector - USB ADP & PC)
 	INPUT_POWER_TYPE_ADP_UBC,			// Using VADP, VUSB power path. Separated power path.
-	INPUT_POWER_TYPE_ADP_UBC_LINKED,	// Using VADP, VUSB power path. Linked power path.
+	INPUT_POWER_TYPE_ADP_NOBATTERY,		// Support only VADP and No Battery System.
 };
 
 struct nxe2000_battery_type_data {
@@ -139,6 +138,7 @@ struct nxe2000_battery_type_data {
 	int	ch_vrchg;
 	int	ch_vbatovset;
 	int	ch_ichg;
+	int	ch_ichg_slp;
 	int	ch_icchg;
 	int	ch_ilim_adp;
 	int	ch_ilim_usb;
@@ -158,6 +158,8 @@ struct nxe2000_battery_type_data {
 #define BATTERY_TYPE_NUM 1
 struct nxe2000_battery_platform_data {
 	int	irq;
+	int	low_vbat_vol_mv;
+	int	low_vsys_vol_mv;
 	int	alarm_vol_mv;
 	int	bat_impe;
 	int	slp_ibat;
