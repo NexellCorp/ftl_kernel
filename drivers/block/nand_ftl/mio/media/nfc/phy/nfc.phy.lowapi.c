@@ -151,22 +151,30 @@ int NFC_PHY_LOWAPI_init(void)
     NFC_PHY_SetFeatures(channels, ways, (void *)nand_config);
 
     ret = 0;
+
+    if (nand_config->_f.support_type.read_retry)
+    {
+        ret = NFC_PHY_READRETRY_Init(channels, ways, 0, nand_config->_f.support_type.read_retry);
+        if (ret < 0)
+        {
+            DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_init: error! ReadRetry!\n");
+        }
+    }
+
     switch(nand_config->_f.support_type.read_retry)
     {
         case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
         case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
         case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
         {
-            ret = NFC_PHY_HYNIX_READRETRY_Init(channels, ways, 0, nand_config->_f.support_type.read_retry);
+            ret = NFC_PHY_HYNIX_READRETRY_MakeRegAll();
             if (ret >= 0)
             {
-                ret = NFC_PHY_HYNIX_READRETRY_MakeRegAll();
+                DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_init: error! Hynix ReadRetry - Make!\n");
             }
         } break;
-    }
-    if (ret < 0)
-    {
-        DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_init: error! HynixReadRetry!\n");
+        
+        default: {} break;
     }
 
     if (nand_config->_f.support_list.randomize)
@@ -222,14 +230,9 @@ void NFC_PHY_LOWAPI_deinit(void)
             NFC_PHY_RAND_DeInit();
         }
 
-        switch(low_api.nandinfo.readretry_type)
+        if (low_api.nandinfo.readretry_type)
         {
-            case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
-            case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
-            case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
-            {
-                NFC_PHY_HYNIX_READRETRY_DeInit();
-            } break;
+            NFC_PHY_READRETRY_DeInit();
         }
 
         NFC_PHY_DeInit();
@@ -529,24 +532,11 @@ int NFC_PHY_LOWAPI_read(unsigned int block_ofs, unsigned int page_ofs, unsigned 
     unsigned int curr_blockindex = block_ofs;
     unsigned int curr_pageindex = page_ofs;
 
-    unsigned char readretry_type = info->readretry_type;
     unsigned char curr_retry_cnt = 0, max_retry_cnt = 0;
     unsigned int retryable = 0;
 
-    switch (readretry_type)
-    {
-        case NAND_READRETRY_TYPE_MICRON_20NM:
-        { max_retry_cnt = 8; } break;
-
-        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
-        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
-        case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
-        { max_retry_cnt = NFC_PHY_HYNIX_READRETRY_GetTotalReadRetryCount(channel, way); } break;
-
-        default:
-        { max_retry_cnt = 0; } break;
-    }
-
+    max_retry_cnt = NFC_PHY_READRETRY_GetTotalReadRetryCount(channel, way);
+    
     NfcEccStatus.level_error[way][channel] = 0;
     NfcEccStatus.error[way][channel] = 0;
     NfcEccStatus.correct_sector[way][channel] = 0;
@@ -623,39 +613,20 @@ int NFC_PHY_LOWAPI_read(unsigned int block_ofs, unsigned int page_ofs, unsigned 
                         NfcEccStatus.correct_bit[way][channel] = 0;
                         NfcEccStatus.max_correct_bit[way][channel] = 0;
 
-                        switch (readretry_type)
-                        {
-                            case NAND_READRETRY_TYPE_MICRON_20NM:
-                            {
-                                unsigned char retry_opt = curr_retry_cnt & 0x07;
-                                if (retry_opt == 3)
-                                {
-                                    retry_opt = 4;
-                                }
-                                DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_read: NFC_PHY_SetOnfiFeature(%d)!\n", retry_opt);
-                                NFC_PHY_SetOnfiFeature(channel, phyway, 0x89, retry_opt);
-
-                            } continue;
-
-                            case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
-                            case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
-                            case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
-                            {
-                                DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_read: NFC_PHY_HYNIX_READRETRY_SetParameter()!\n");
-                                NFC_PHY_HYNIX_READRETRY_SetParameter(channel, phyway);
-                            } continue;
-
-                            default:
-                            {
-                                failed = 1;
-                            } break;
-                        }
+                        NFC_PHY_READRETRY_SetParameter(channel, phyway);
                     }
                     else
                     {
                         failed = 1;
                     }
                 }
+
+                // restore read retry option
+                if (curr_retry_cnt)
+                {
+                    NFC_PHY_READRETRY_Post(channel, phyway);
+                }
+                
             }
             else
             {

@@ -19,12 +19,13 @@
 #include "mio.smart.h"
 
 /******************************************************************************
- * 
+ *
  ******************************************************************************/
 static ssize_t miosys_read(struct file * file, char * buf, size_t count, loff_t * ppos);
 static ssize_t miosys_write(struct file * file, const char * buf, size_t count, loff_t * ppos);
 static int miosys_print_wearleveldata(void);
 static int miosys_print_smart(void);
+static int miosys_print_readretrytable(void);
 
 struct file_operations miosys_fops =
 {
@@ -41,7 +42,7 @@ struct miscdevice miosys =
 };
 
 /******************************************************************************
- * 
+ *
  ******************************************************************************/
 char kbuf[16];
 
@@ -70,17 +71,18 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
 
   //DBG_MIOSYS(KERN_INFO "miosys_write(file:0x%08x buf:0x%08x count:%d ppos:0x%08x)",
   //           (unsigned int)file, (unsigned int)buf, count, (unsigned int)ppos);
-               
+
     // Command Parse
     {
         enum
         {
             MIOSYS_NONE = 0x00000000,
 
-            MIOSYS_REQUEST_SMART     = 0x10000000,
-            MIOSYS_REQUEST_WEARLEVEL = 0x20000000,
+            MIOSYS_REQUEST_SMART          = 0x10000000,
+            MIOSYS_REQUEST_WEARLEVEL      = 0x20000000,
+            MIOSYS_REQUEST_READRETRYTABLE = 0x30000000,
 
-            MIOSYS_REQEUST_DEBUG = 0x30000000,
+            MIOSYS_REQEUST_DEBUG          = 0xF0000000,
 
             // # echo "debug block enable" > /dev/miosys
             // # echo "debug block disable" > /dev/miosys
@@ -127,6 +129,10 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
                     else if (!memcmp((const void *)token, (const void *)"debug", strlen("debug")))
                     {
                         state = MIOSYS_REQEUST_DEBUG;
+                    }
+                    else if (!memcmp((const void *)token, (const void *)"readretrytable", strlen("readretrytable")))
+                    {
+                        state = MIOSYS_REQUEST_READRETRYTABLE;
                     }
                     else
                     {
@@ -215,6 +221,11 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
                 miosys_print_wearleveldata();
             } break;
 
+            case MIOSYS_REQUEST_READRETRYTABLE:
+            {
+                miosys_print_readretrytable();
+            } break;
+
             default:
             {
             } break;
@@ -283,38 +294,6 @@ cont:
     }
 }
 
-#if 0
-int miosys_print_smart(void)
-{
-    // ECC corrected
-    unsigned int *pcurrent = 0;
-    unsigned int channel = 0, way = 0;
-
-    // ECC info
-    DBG_MIOSYS(KERN_INFO "NAND CH%02d-WAY%02d - ECC Count", channel, way);
-
-    for (way=0; way < *Exchange.ftl.Way; way++)
-    {
-        for (channel=0; channel < *Exchange.ftl.Channel; channel++)
-        {
-            // ECC corrected
-            pcurrent = &(Exchange.statistics.ecc_sector.corrected[way][channel]);
-            DBG_MIOSYS(KERN_INFO " ECC corrected count: current:%d", *pcurrent);
-
-            // ECC leveldetected
-            pcurrent = &(Exchange.statistics.ecc_sector.leveldetected[way][channel]);
-            DBG_MIOSYS(KERN_INFO " ECC leveldetected count: current:%d", *pcurrent);
-
-            // ECC uncorrectable
-            pcurrent = &(Exchange.statistics.ecc_sector.uncorrectable[way][channel]);
-            DBG_MIOSYS(KERN_INFO " ECC uncorrectable count: current:%d", *pcurrent);
-
-        }
-    }
-
-    return 0;
-}
-#else
 int miosys_print_smart(void)
 {
     // ECC corrected
@@ -417,7 +396,6 @@ int miosys_print_smart(void)
 
     return 0;
 }
-#endif
 
 int miosys_print_wearleveldata(void)
 {
@@ -519,13 +497,13 @@ int miosys_print_wearleveldata(void)
                     validnum_erasecount += 1;
                 }
             }
-       
+
             if (validnum_erasecount)
             {
                 average_erasecount[0] = sum_erasecount / validnum_erasecount;
                 average_erasecount[1] = ((sum_erasecount % validnum_erasecount) * 100) / validnum_erasecount;
             }
- 
+
             DBG_MIOSYS(KERN_INFO "bad blocks %d", badblock_count);
             DBG_MIOSYS(KERN_INFO "max erasecount %5d", max_erasecount);
             DBG_MIOSYS(KERN_INFO "min erasecount %5d", min_erasecount);
@@ -540,4 +518,11 @@ int miosys_print_wearleveldata(void)
     return 0;
 }
 
-
+int miosys_print_readretrytable(void)
+{
+	if (Exchange.nfc.fnReadRetry_PrintTable)
+	{
+		Exchange.nfc.fnReadRetry_PrintTable();
+	}
+    return 0;
+}

@@ -640,9 +640,9 @@ unsigned int NFC_PHY_GetEccParitySize(unsigned int _eccbits)
     unsigned int uiBytesPerParity = 0;
 
 #if defined (__BUILD_MODE_X86_WINDOWS_SIMULATOR__)
-    unsigned char pucValidEccList[] = {0}
+    unsigned char pucValidEccList[] = {0};
 #elif defined (__BUILD_MODE_X86_LINUX_DEVICE_DRIVER__)
-    unsigned char pucValidEccList[] = {0}
+    unsigned char pucValidEccList[] = {0};
 #elif defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__) || defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
     unsigned char pucValidEccList[] = {4,8,16,24,40,60};
 #endif
@@ -1480,13 +1480,14 @@ void NFC_PHY_SetFeatures(unsigned int _max_channel, unsigned int _max_way, void 
 /******************************************************************************
  *
  ******************************************************************************/
-int NFC_PHY_ReadId(unsigned int _channel, unsigned int _way, char * _id, char * _onfi_id)
+int NFC_PHY_ReadId(unsigned int _channel, unsigned int _way, char * _id, char * _onfi_id, char * _jedec_id)
 {
     int res = 0;
     unsigned int channel = _channel;
     unsigned int way = _way;
     char * id = _id;
     char * onfi_id = _onfi_id;
+    char * jedec_id = _jedec_id;
     char status = 0;
 
     unsigned int expire = 10000;
@@ -1535,6 +1536,16 @@ int NFC_PHY_ReadId(unsigned int _channel, unsigned int _way, char * _id, char * 
                 *onfi_id = 0; onfi_id++;
             }
 
+            if (jedec_id)
+            {
+                *jedec_id = 0; jedec_id++;
+                *jedec_id = 0; jedec_id++;
+                *jedec_id = 0; jedec_id++;
+                *jedec_id = 0; jedec_id++;
+                *jedec_id = 0; jedec_id++;
+                *jedec_id = 0; jedec_id++;
+            }
+
             res = -1;
         }
         else
@@ -1567,6 +1578,20 @@ int NFC_PHY_ReadId(unsigned int _channel, unsigned int _way, char * _id, char * 
                 *onfi_id++ = NFC_PHY_RData();
                 *onfi_id++ = NFC_PHY_RData();
                 *onfi_id++ = NFC_PHY_RData();
+            }
+
+            if (jedec_id)
+            {
+                NFC_PHY_Cmd(NF_CMD_READ_ID);
+                NFC_PHY_Addr(0x40);
+                NFC_PHY_tDelay(NfcTime.tWHR);
+
+                *jedec_id++ = NFC_PHY_RData();
+                *jedec_id++ = NFC_PHY_RData();
+                *jedec_id++ = NFC_PHY_RData();
+                *jedec_id++ = NFC_PHY_RData();
+                *jedec_id++ = NFC_PHY_RData();
+                *jedec_id++ = NFC_PHY_RData();
             }
         }
     }
@@ -1642,14 +1667,11 @@ void NFC_PHY_GetOnfiFeature(unsigned int _channel, unsigned int _way, unsigned c
     NFC_PHY_ChipSelect(channel, way, __FALSE);
 }
 
-void NFC_PHY_GetOnfiParameter(unsigned int _channel, unsigned int _way, unsigned char _feature_address, unsigned char * _parameter, unsigned char * _ext_parameter)
+void NFC_PHY_GetStandardParameter(unsigned int _channel, unsigned int _way, unsigned char _feature_address, unsigned char * _parameter, unsigned char * _ext_parameter)
 {
     unsigned int channel = _channel;
     unsigned int way = _way;
     unsigned char feature_address = _feature_address;
-
-    ONFI_PARAMETER * onfi_param = (ONFI_PARAMETER *)_parameter;
-    ONFI_EXT_PARAMETER * onfi_ext_param = (ONFI_EXT_PARAMETER *)_ext_parameter;
 
     unsigned char * read_parameter = (unsigned char *)0;
     unsigned char * read_ext_parameter = (unsigned char *)0;
@@ -1672,6 +1694,9 @@ void NFC_PHY_GetOnfiParameter(unsigned int _channel, unsigned int _way, unsigned
          **********************************************************************/
         if (0x00 == feature_address)
         {
+            ONFI_PARAMETER * onfi_param = (ONFI_PARAMETER *)_parameter;
+            ONFI_EXT_PARAMETER * onfi_ext_param = (ONFI_EXT_PARAMETER *)_ext_parameter;
+
             /******************************************************************
              * Read ONFI Parameter
              ******************************************************************/
@@ -1694,7 +1719,7 @@ void NFC_PHY_GetOnfiParameter(unsigned int _channel, unsigned int _way, unsigned
                 if (!read_done)
                 {
                     // Check Integrity CRC
-                    if (onfi_param->_f.integrity_crc == Exchange.std.__get_crc32(0x4F4E, (void *)onfi_param->_c, sizeof(onfi_param->_c) - 2))
+                    if (onfi_param->_f.integrity_crc == Exchange.std.__get_crc16(0x4F4E, (void *)onfi_param->_c, sizeof(onfi_param->_c) - 2))
                     {
                         read_done = 1;
                     }
@@ -1748,7 +1773,7 @@ void NFC_PHY_GetOnfiParameter(unsigned int _channel, unsigned int _way, unsigned
                     if (!read_done)
                     {
                         // Check Integrity CRC
-                        if (onfi_param->_f.integrity_crc == Exchange.std.__get_crc32(0x4F4E, (void *)onfi_param->_c, sizeof(onfi_param->_c) - 2))
+                        if (onfi_param->_f.integrity_crc == Exchange.std.__get_crc16(0x4F4E, (void *)onfi_param->_c, sizeof(onfi_param->_c) - 2))
                         {
                             read_done = 1;
                         }
@@ -1854,7 +1879,7 @@ void NFC_PHY_GetOnfiParameter(unsigned int _channel, unsigned int _way, unsigned
                     if (!read_done)
                     {
                         // Check Integrity CRC
-                        if (onfi_ext_param->_f.extended_parameter_page_integrity_crc == Exchange.std.__get_crc32(0x4F4E, (void *)(read_ext_parameter+2), entire_section_length-2))
+                        if (onfi_ext_param->_f.extended_parameter_page_integrity_crc == Exchange.std.__get_crc16(0x4F4E, (void *)(read_ext_parameter+2), entire_section_length-2))
                         {
                             read_done = 1;
                         }
@@ -1875,7 +1900,59 @@ void NFC_PHY_GetOnfiParameter(unsigned int _channel, unsigned int _way, unsigned
         /**********************************************************************
          * JEDEC Parameter
          **********************************************************************/
-        else if (0x40 == feature_address) {}
+        else if (0x40 == feature_address)
+        {
+            JEDEC_PARAMETER * jedec_param = (JEDEC_PARAMETER *)_parameter;
+
+            /******************************************************************
+             * Read JEDEC standard formatted Parameter
+             ******************************************************************/
+            read_offset = 0;
+            read_done = 0;
+
+            for (parameter_page_loop = 0; parameter_page_loop < 16; parameter_page_loop++)
+            {
+                read_parameter = (unsigned char *)jedec_param->_c;
+
+                for (read_loop = 0; read_loop < sizeof(jedec_param->_c); read_loop++)
+                {
+                    if (!read_done) { *read_parameter++ = NFC_PHY_RData(); }
+                    else            { NFC_PHY_RData(); }
+
+                    read_offset += 1;
+                }
+
+                if (!read_done)
+                {
+                    // Check Integrity CRC
+                    if (jedec_param->_f.integrity_crc == Exchange.std.__get_crc16(0x4F4E, (void *)jedec_param->_c, sizeof(jedec_param->_c) - 2))
+                    {
+                        read_done = 1;
+                        break;
+                    }
+                }
+            }
+
+#if 0 // view the parameters
+            __print("parameter_page_loop:%d \n", parameter_page_loop);
+            {
+                unsigned int i=0;
+
+                for (i=0; i<512; i++)
+                {
+                    if (i%32 == 0)
+                  //if (i%10 == 0)
+                    {
+                        __print("\n[%04x(%04d)] ", i, i);
+                    }
+
+                    __print("%02x ", jedec_param->_c[i]);
+                }
+            }
+            __print("\n");
+#endif
+
+        }
     }
     NFC_PHY_ChipSelect(channel, way, __FALSE);
 }

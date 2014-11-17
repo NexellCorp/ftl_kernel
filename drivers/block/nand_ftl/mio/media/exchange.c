@@ -73,8 +73,8 @@ extern unsigned int NFC_GetEccParitySize(unsigned int _eccbits);
 extern unsigned int NFC_PHY_Init(unsigned int _scan_format);
 extern void NFC_PHY_DeInit(void);
 
-extern int NFC_PHY_HYNIX_READRETRY_Init(unsigned int _max_channels, unsigned int _max_ways, const unsigned char *_way_map, unsigned char _readretry_type);
-extern void NFC_PHY_HYNIX_READRETRY_DeInit(void);
+extern int NFC_PHY_READRETRY_Init(unsigned int _max_channels, unsigned int _max_ways, const unsigned char *_way_map, unsigned char _readretry_type);
+extern void NFC_PHY_READRETRY_DeInit(void);
 
 extern int NFC_PHY_RAND_Init(int _buf_size);
 extern void NFC_PHY_RAND_DeInit(void);
@@ -132,8 +132,8 @@ void EXCHANGE_init(void)
     Exchange.nfc.fnInit = NFC_PHY_Init;
     Exchange.nfc.fnDeInit = NFC_PHY_DeInit;
 
-    Exchange.nfc.fnReadRetry_Init = NFC_PHY_HYNIX_READRETRY_Init;
-    Exchange.nfc.fnReadRetry_DeInit = NFC_PHY_HYNIX_READRETRY_DeInit;
+    Exchange.nfc.fnReadRetry_Init = NFC_PHY_READRETRY_Init;
+    Exchange.nfc.fnReadRetry_DeInit = NFC_PHY_READRETRY_DeInit;
 
     Exchange.nfc.fnRandomize_Init = NFC_PHY_RAND_Init;
     Exchange.nfc.fnRandomize_DeInit = NFC_PHY_RAND_DeInit;
@@ -159,8 +159,8 @@ void EXCHANGE_init(void)
     Exchange.nfc.fnInit = NFC_PHY_Init;
     Exchange.nfc.fnDeInit = NFC_PHY_DeInit;
     
-    Exchange.nfc.fnReadRetry_Init = NFC_PHY_HYNIX_READRETRY_Init;
-    Exchange.nfc.fnReadRetry_DeInit = NFC_PHY_HYNIX_READRETRY_DeInit;
+    Exchange.nfc.fnReadRetry_Init = NFC_PHY_READRETRY_Init;
+    Exchange.nfc.fnReadRetry_DeInit = NFC_PHY_READRETRY_DeInit;
 
     Exchange.nfc.fnRandomize_Init = NFC_PHY_RAND_Init;
     Exchange.nfc.fnRandomize_DeInit = NFC_PHY_RAND_DeInit;

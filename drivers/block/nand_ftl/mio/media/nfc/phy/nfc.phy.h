@@ -49,6 +49,28 @@
 /******************************************************************************
  * NAND Maker Toshiba, Not Support
  ******************************************************************************/
+// NAND Generation
+#define NAND_TOSHIBA_24NM                       ((NAND_MAKER_TOSHIBA<<NAND_FIELD_MAKER) | (0x01<<NAND_FIELD_GENERATION))
+#define NAND_TOSHIBA_19NM                       ((NAND_MAKER_TOSHIBA<<NAND_FIELD_MAKER) | (0x02<<NAND_FIELD_GENERATION))
+#define NAND_TOSHIBA_1YNM                       ((NAND_MAKER_TOSHIBA<<NAND_FIELD_MAKER) | (0x04<<NAND_FIELD_GENERATION))
+
+// NAND Model
+#define NAND_TOSHIBA_TC58TEG6DDKTA00            (NAND_TOSHIBA_1YNM | (1<<0x00))     // Toshiba MLC 1Ynm [ 1 DIE, 1 CE, 1 R/B, Common IO   ]     64Gb, Toggle,
+#define NAND_TOSHIBA_TC58TEG6DDKTAI0            (NAND_TOSHIBA_1YNM | (1<<0x01))
+#define NAND_TOSHIBA_TH58TEG7DDKTA20            (NAND_TOSHIBA_1YNM | (1<<0x02))
+#define NAND_TOSHIBA_TH58TEG7DDKTAK0            (NAND_TOSHIBA_1YNM | (1<<0x03))
+#define NAND_TOSHIBA_TH58TEG8DDKTA20            (NAND_TOSHIBA_1YNM | (1<<0x04))
+#define NAND_TOSHIBA_TH58TEG8DDKTAK0            (NAND_TOSHIBA_1YNM | (1<<0x05))
+
+#define NAND_TOSHIBA_TC58TEG5DCKTA00            (NAND_TOSHIBA_1YNM | (1<<0x06))     // Toshiba MLC 1Ynm [ 1 DIE, 1 CE, ? R/B, Common IO   ]     32Gb, Toggle,
+#define NAND_TOSHIBA_TC58TEG5DCKTAI0            (NAND_TOSHIBA_1YNM | (1<<0x07))
+
+#define NAND_TOSHIBA_TC58TEG6DCJTA00            (NAND_TOSHIBA_19NM | (1<<0x00))     // Toshiba MLC 19nm [ 1 DIE, 1 CE, 1 R/B, Common IO   ]     64Gb, Toggle,
+#define NAND_TOSHIBA_TC58TEG6DCJTAI0            (NAND_TOSHIBA_19NM | (1<<0x01))
+#define NAND_TOSHIBA_TH58TEG7DCJTA20            (NAND_TOSHIBA_19NM | (1<<0x02))     // Toshiba MLC 19nm [ 2 DIE, 2 CE, 2 R/B, Common IO   ]     128Gb, Toggle,
+#define NAND_TOSHIBA_TH58TEG7DCJTAK0            (NAND_TOSHIBA_19NM | (1<<0x03))
+#define NAND_TOSHIBA_TH58TEG8DCJTA20            (NAND_TOSHIBA_19NM | (1<<0x04))     // Toshiba MLC 19nm [ 4 DIE, 2 CE, 2 R/B, Common IO   ]     256Gb, Toggle,
+#define NAND_TOSHIBA_TH58TEG8DCJTAK0            (NAND_TOSHIBA_19NM | (1<<0x05))
 
 /******************************************************************************
  * NAND Maker SKHynix
@@ -469,87 +491,227 @@ typedef union __JEDEC_PARAMETER__
         /**********************************************************************
          * Revision Information and Features Block
          **********************************************************************/
-        unsigned char parameter_page_signature[4];
-        unsigned char revision_number[2];
-        unsigned char features_supported0[2];
-        unsigned char features_supported1[3];
-        unsigned char secondary_commands_supported[2];
-        unsigned char number_of_parameter_pages;
-        unsigned char _rsvd0[18];
+        struct
+        {
+            unsigned char  parameter_page_signature[4];
+            unsigned short revision_number;
+
+            struct
+            {
+                unsigned short data_bus_width_16                        : 1;
+                unsigned short multiple_lun_operations                  : 1;
+                unsigned short non_sequential_page_programming          : 1;
+                unsigned short multi_plane_program_and_erase_operations : 1;
+                unsigned short multi_plane_read_operations              : 1;
+                unsigned short synchronous_ddr                          : 1;
+                unsigned short toggle_Mode_ddr                          : 1;
+                unsigned short external_vpp                             : 1;
+                unsigned short program_page_register_clear_enhancement  : 1;
+                unsigned short _rsvd                                    : 7;
+
+            } features_supported;
+
+            struct
+            {
+                unsigned short supports_page_cache_program_command    : 1;
+                unsigned short supports_read_cache_commands           : 1;
+                unsigned short supports_get_features_and_set_features : 1;
+                unsigned short supports_read_status_enhanced          : 1;
+                unsigned short supports_copyback                      : 1;
+                unsigned short supports_read_unique_id                : 1;
+                unsigned short supports_random_data_out               : 1;
+                unsigned short supports_multi_plane_copyback_program  : 1;
+                unsigned short supports_small_data_move               : 1;
+                unsigned short supports_reset_lun                     : 1;
+                unsigned short supports_synchronous_reset             : 1;
+                unsigned short _rsvd0                                 : 13;
+
+            } optional_commands_supported;
+
+            unsigned short secondary_commands_supported;
+            unsigned char  number_of_parameter_pages;
+            unsigned char  _rsvd0[18];
+
+        } revision_info_and_features;
 
         /**********************************************************************
          * Manufacturer information block
          **********************************************************************/
-        unsigned char device_manufacturer[12];
-        unsigned char device_model[20];
-        unsigned char jedec_manufacturer_id[6];
-        unsigned char _rsvd1[10];
+        struct
+        {
+            unsigned char device_manufacturer[12];
+            unsigned char device_model[20];
+            unsigned char jedec_manufacturer_id[6];
+            unsigned char _rsvd0[10];
+
+        } manufacturer_information;
 
         /**********************************************************************
          * Memory organization block
          **********************************************************************/
-        unsigned char number_of_data_bytes_per_page[4];
-        unsigned char number_of_spare_bytes_per_page[2];
-        unsigned char number_of_data_bytes_per_partial_page[4];
-        unsigned char number_of_spare_bytes_per_partial_page[2];
-        unsigned char number_of_pages_per_block[4];
-        unsigned char number_of_blocks_per_lun[4];
-        unsigned char number_of_luns_per_chip_enable;
-        unsigned char number_of_address_cycles;
-        unsigned char number_of_bits_per_cell;
-        unsigned char number_of_programs_per_page;
-        unsigned char multi_plane_operation_addressing;
-        unsigned char multi_plane_operation_attributes;
-        unsigned char _rsvd2[38];
+        struct
+        {
+            unsigned int   number_of_data_bytes_per_page;
+            unsigned short number_of_spare_bytes_per_page;
+            unsigned char  _rsvd0[6];
+            unsigned int   number_of_pages_per_block;
+            unsigned int   number_of_blocks_per_lun;
+            unsigned char  number_of_luns_per_chip_enable;
+
+            unsigned char  number_of_address_cycles;
+            unsigned char  number_of_bits_per_cell;
+            unsigned char  number_of_programs_per_page;
+
+            struct
+            {
+                unsigned char number_of_plane_address_bits : 4;
+                unsigned char _rsvd0                       : 4;
+
+            } multi_plane_operation_addressing;
+
+            struct
+            {
+                unsigned char no_multi_plane_block_address_restrictions : 1;
+                unsigned char program_cache_supported                   : 1;
+                unsigned char read_cache_supported                      : 1;
+                unsigned char _rsvd0                                    : 5;
+
+            } multi_plane_operation_attributes;
+
+            unsigned char  _rsvd1[38];
+
+        } memory_organization;
 
         /**********************************************************************
          * Electrical parameters block
          **********************************************************************/
-        unsigned char asynchronous_sdr_speed_grade_support[2];
-        unsigned char _rsvd3[2];
-        unsigned char synchronous_ddr_speed_grade_support[2];
-        unsigned char asynchronous_sdr_features;
-        unsigned char _rsvd4;
-        unsigned char synchronous_ddr_features;
-        unsigned char tprog_maximum_program_page_time_us[2];
-        unsigned char tbers_maximum_block_erase_time_us[2];
-        unsigned char tr_maximum_page_read_time_us[2];
-        unsigned char tr_maximum_multi_plane_page_read_time_us[2];
-        unsigned char tccs_minimum_change_column_setup_time_ns[2];
-        unsigned char io_pin_capacitance_typical[2];
-        unsigned char input_capacitance_typical[2];
-        unsigned char clk_input_pin_capacitance_typical[2];
-        unsigned char driver_strength_support;
-        unsigned char _rsvd5[38];
+        struct
+        {
+            struct
+            {
+                unsigned short supports_100ns_speed_grade : 1;
+                unsigned short supports_50ns_speed_grade  : 1;
+                unsigned short supports_35ns_speed_grade  : 1;
+                unsigned short supports_30ns_speed_grade  : 1;
+                unsigned short supports_25ns_speed_grade  : 1;
+                unsigned short supports_20ns_speed_grade  : 1;
+                unsigned short _rsvd0                     : 10;
+
+            } asynchronous_sdr_speed_grade;
+        
+            struct
+            {
+                unsigned short supports_30ns_speed_grade : 1;
+                unsigned short supports_25ns_speed_grade : 1;
+                unsigned short supports_15ns_speed_grade : 1;
+                unsigned short supports_12ns_speed_grade : 1;
+                unsigned short supports_10ns_speed_grade : 1;
+                unsigned short _rsvd0                    : 11;
+
+            } toggle_ddr_speed_grade;
+
+            struct
+            {
+                unsigned short supports_50ns_speed_grade : 1;
+                unsigned short supports_30ns_speed_grade : 1;
+                unsigned short supports_20ns_speed_grade : 1;
+                unsigned short supports_15ns_speed_grade : 1;
+                unsigned short supports_12ns_speed_grade : 1;
+                unsigned short supports_10ns_speed_grade : 1;
+                unsigned short _rsvd0                    : 10;
+
+            } synchronous_ddr_speed_grade;
+
+            unsigned char  asynchronous_sdr_features;
+            unsigned char  toggle_mode_ddr_features;
+            unsigned char  synchronous_ddr_features;
+
+            unsigned short tPROG;
+            unsigned short tBERS;
+            unsigned short tR;
+            unsigned short tR_multi_plane;
+            unsigned short tCCS;
+            unsigned short io_pin_capacitance;
+            unsigned short input_capacitance;
+            unsigned short clk_pin_capacitance;
+
+            struct
+            {
+                unsigned char supports_35ohm_or_50ohm : 1;
+                unsigned char supports_25ohm          : 1;
+                unsigned char supports_18ohm          : 1;
+                unsigned char _rsvd0                  : 5;
+
+            } driver_strength_support;
+
+            unsigned short tADL;
+
+            unsigned char  _rsvd0[36];
+
+        } electrical_parameters;
 
         /**********************************************************************
          * ECC and endurance block
          **********************************************************************/
-        unsigned char guaranteed_valid_blocks_at_beginning_of_target;
-        unsigned char block_endurance_for_guaranteed_valid_blocks[2];
-        unsigned char number_of_bits_ecc_correctability;
-        unsigned char ecc_codeword_size;
-        unsigned char bad_blocks_maximum_per_lun[2];
-        unsigned char block_endurance[2];
-        unsigned char _rsvd6[55];
+        struct
+        {
+            unsigned char  guaranteed_valid_blocks_of_target;
+            unsigned short block_endurance_for_guaranteed_valid_blocks;
 
-        /**********************************************************************
-         * Reserved
-         **********************************************************************/
-        unsigned char _rsvd7[148];
+            struct
+            {
+                unsigned char  number_of_bits_ecc_correctability;
+                unsigned char  codeword_size;
+                unsigned short maximum_value_of_average_bad_blocks_per_lun;
+                unsigned char  block_endurance[2];
+                unsigned char  _rsvd0[2];
+
+            } information_block_0;
+
+            struct
+            {
+                unsigned char  number_of_bits_ecc_correctability;
+                unsigned char  codeword_size;
+                unsigned short maximum_value_of_average_bad_blocks_per_lun;
+                unsigned char  block_endurance[2];
+                unsigned char  _rsvd0[2];
+
+            } information_block_1;
+
+            struct
+            {
+                unsigned char  number_of_bits_ecc_correctability;
+                unsigned char  codeword_size;
+                unsigned short maximum_value_of_average_bad_blocks_per_lun;
+                unsigned char  block_endurance[2];
+                unsigned char  _rsvd0[2];
+
+            } information_block_2;
+
+            struct
+            {
+                unsigned char  number_of_bits_ecc_correctability;
+                unsigned char  codeword_size;
+                unsigned short maximum_value_of_average_bad_blocks_per_lun;
+                unsigned char  block_endurance[2];
+                unsigned char  _rsvd0[2];
+
+            } information_block_3;
+
+            unsigned char _rsvd6[177];
+
+        } ecc_and_endurance;
 
         /**********************************************************************
          * Vendor specific block
          **********************************************************************/
         unsigned char vendor_specific_revision_number[2];
-        unsigned char read_retry_options;
-        unsigned char read_retry_options_available[4];
-        unsigned char _rsvd8[83];
+        unsigned char _rsvd0[88];
 
         /**********************************************************************
          * CRC for Parameter Page
          **********************************************************************/
-        unsigned char integrity_crc[2];
+        unsigned short integrity_crc;
 
     } _f;
 
@@ -670,7 +832,7 @@ NFC_PHY_EXT void NFC_PHY_EccInfoDeInit(void);
 /******************************************************************************
  *
  ******************************************************************************/
-NFC_PHY_EXT int NFC_PHY_ReadId(unsigned int _channel, unsigned int _way, char * _id, char * _onfi_id);
+NFC_PHY_EXT int NFC_PHY_ReadId(unsigned int _channel, unsigned int _way, char * _id, char * _onfi_id, char * _jedec_id);
 NFC_PHY_EXT void NFC_PHY_NandReset(unsigned int _channel, unsigned int _way);
 
 /******************************************************************************
@@ -678,7 +840,7 @@ NFC_PHY_EXT void NFC_PHY_NandReset(unsigned int _channel, unsigned int _way);
  ******************************************************************************/
 NFC_PHY_EXT void NFC_PHY_SetOnfiFeature(unsigned int _channel, unsigned int _way, unsigned char _feature_address, unsigned int _parameter);
 NFC_PHY_EXT void NFC_PHY_GetOnfiFeature(unsigned int _channel, unsigned int _way, unsigned char _feature_address, unsigned int * _parameter);
-NFC_PHY_EXT void NFC_PHY_GetOnfiParameter(unsigned int _channel, unsigned int _way, unsigned char _feature_address, unsigned char * _parameter, unsigned char * _ext_parameter);
+NFC_PHY_EXT void NFC_PHY_GetStandardParameter(unsigned int _channel, unsigned int _way, unsigned char _feature_address, unsigned char * _parameter, unsigned char * _ext_parameter);
 
 /******************************************************************************
  *
