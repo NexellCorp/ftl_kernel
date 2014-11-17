@@ -917,8 +917,8 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
     nand_config->_f.number_of_planes       = __POW(1,jedec_param->_f.memory_organization.multi_plane_operation_addressing.number_of_plane_address_bits);
     nand_config->_f.pages_per_block        = jedec_param->_f.memory_organization.number_of_pages_per_block;
 
-    // calculate mainblocks and extendedblocks    
-    for (i = (sizeof(mainblocks) / sizeof(mainblocks[0])); i >= 0; i--)
+    // calculate mainblocks and extendedblocks
+    for (i = ((sizeof(mainblocks) / sizeof(mainblocks[0])) - 1); i >= 0; i--)
     {
         if (jedec_param->_f.memory_organization.number_of_blocks_per_lun > (unsigned int)mainblocks[i])
         {
@@ -1203,8 +1203,6 @@ unsigned int NFC_PHY_ScanToshiba(unsigned char * _id, unsigned char * _jedec_id,
         else
         {
             bytes_per_page = phy_features.jedec_param._f.memory_organization.number_of_data_bytes_per_page;
-
-            Exchange.std.__print("AAA bytes_per_page:%d \n", bytes_per_page);
         }
 
 #if 0
