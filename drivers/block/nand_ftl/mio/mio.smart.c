@@ -464,6 +464,11 @@ int miosmart_save(void)
     /**********************************************************************
      * write & verify
      **********************************************************************/
+    if (Exchange.debug.ftl.smart_log)
+    {
+        __PRINT("mio.smart.save start...");
+    }
+
     for (try_count=0; try_count < 2; try_count++)
     {
         if (mioadmin_write(region, (void *)mioadmin.rwbuff, region_size) < 0)
@@ -517,6 +522,11 @@ int miosmart_save(void)
         prev_iodata_crc32 = MioSmartInfo.io_accumulate.crc32;
         prev_nanddata0c0w_crc32 = MioSmartInfo.nand_accumulate[0][0].crc32;
 
+    }
+
+    if (Exchange.debug.ftl.smart_log)
+    {
+        __PRINT("mio.smart.save done");
     }
 
     return resp;

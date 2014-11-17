@@ -610,7 +610,8 @@ typedef struct __ExDEBUG__
         unsigned int boot_read_retry : 1;
         unsigned int read_retry      : 1;
         unsigned int block_summary   : 1;
-        unsigned int _rsvd0          : 16 - 8;
+        unsigned int smart_log       : 1;
+        unsigned int _rsvd0          : 16 - 10;
 
         // Error, Warnning
         unsigned int error  : 1;

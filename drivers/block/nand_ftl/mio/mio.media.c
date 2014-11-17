@@ -120,6 +120,7 @@ int media_open(void)
     Exchange.debug.ftl.error = 1;
   //Exchange.debug.ftl.boot_read_retry = 1;
   //Exchange.debug.ftl.read_retry = 1;
+    Exchange.debug.ftl.smart_log = 0;
 
   //Exchange.debug.nfc.sche.operation = 1;
 
