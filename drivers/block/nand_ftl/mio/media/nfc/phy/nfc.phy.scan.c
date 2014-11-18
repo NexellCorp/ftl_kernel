@@ -637,7 +637,7 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
         {
             switch (__NROOT(nand&NAND_MASK_GENERATION,NAND_FIELD_GENERATION))
             {
-                case 0x02:
+                case 0x04:
                 {
                     memcpy((void *)nand_config->_f.generation, (const void *)"19nm", strlen("19nm"));
 
