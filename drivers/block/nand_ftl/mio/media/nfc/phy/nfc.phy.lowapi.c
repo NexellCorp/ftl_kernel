@@ -106,7 +106,7 @@ int NFC_PHY_LOWAPI_init(void)
 {
     int ret = 0;
     NAND * nand_config = (NAND *)&phy_features.nand_config;
-    unsigned int channels = 1, ways = 1; 
+    unsigned int channels = 1, ways = 1;
 
     if (Exchange.ftl.fnIsBooted)
     {
@@ -268,7 +268,7 @@ int NFC_PHY_LOWAPI_nand_erase(loff_t ofs, size_t size)
  ******************************************************************************/
 int NFC_PHY_LOWAPI_ofs_write(loff_t ofs, size_t *len, u_char *buf, unsigned char enable_ecc)
 {
-    MIO_NAND_INFO *info = &low_api.nandinfo; 
+    MIO_NAND_INFO *info = &low_api.nandinfo;
     unsigned int block_ofs=0, page_ofs=0, sector_ofs=0, byte_ofs=0;
     unsigned int sectors= (*len) / 512;
     unsigned int curr_blockindex = 0;
@@ -299,7 +299,7 @@ int NFC_PHY_LOWAPI_ofs_write(loff_t ofs, size_t *len, u_char *buf, unsigned char
 
 int NFC_PHY_LOWAPI_ofs_read(loff_t ofs, size_t *len, u_char *buf, unsigned char enable_ecc)
 {
-    MIO_NAND_INFO *info = &low_api.nandinfo; 
+    MIO_NAND_INFO *info = &low_api.nandinfo;
     unsigned int block_ofs=0, page_ofs=0, byte_ofs=0, sector_ofs=0;
     unsigned int sectors=0;
     unsigned char *destbuf = (unsigned char *)buf;

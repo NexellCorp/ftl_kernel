@@ -65,10 +65,10 @@
 #define NAND_HYNIX_16NM_x_DIE                   ((NAND_MAKER_SKHYNIX<<NAND_FIELD_MAKER) | (0xFF<<NAND_FIELD_GENERATION)) // die is not recognized. this is temporary.
 
 // NAND Model
-#define NAND_HYNIX_H27UCG8T2ATR                 (NAND_HYNIX_20NM_A_DIE | (1<<0))    // Hynix MLC 20nm		[ 1 DIE, 1 CE, 1 R/B, Common IO   ]     64Gb, Async
-#define NAND_HYNIX_H27UCG8T2CTR                 (NAND_HYNIX_20NM_C_DIE | (1<<0))    // Hynix MLC 20nm		[ 1 DIE, 1 CE, 1 R/B, Common IO   ]     32Gb, Async
-#define NAND_HYNIX_H27UBG8T2DTR                 (NAND_HYNIX_16NM_x_DIE | (1<<0))    // Hynix MLC 16nm		[ 1 DIE, 1 CE, 1 R/B, Common IO   ]     32Gb, Async
-#define NAND_HYNIX_H27UCG8T2ETR                 (NAND_HYNIX_16NM_B_DIE | (1<<0))    // Hynix MLC 16nm		[ 1 DIE, 1 CE, 1 R/B, Common IO   ]     64Gb, Async
+#define NAND_HYNIX_H27UCG8T2ATR                 (NAND_HYNIX_20NM_A_DIE | (1<<0))    // Hynix MLC 20nm       [ 1 DIE, 1 CE, 1 R/B, Common IO   ]     64Gb, Async
+#define NAND_HYNIX_H27UCG8T2CTR                 (NAND_HYNIX_20NM_C_DIE | (1<<0))    // Hynix MLC 20nm       [ 1 DIE, 1 CE, 1 R/B, Common IO   ]     32Gb, Async
+#define NAND_HYNIX_H27UBG8T2DTR                 (NAND_HYNIX_16NM_x_DIE | (1<<0))    // Hynix MLC 16nm       [ 1 DIE, 1 CE, 1 R/B, Common IO   ]     32Gb, Async
+#define NAND_HYNIX_H27UCG8T2ETR                 (NAND_HYNIX_16NM_B_DIE | (1<<0))    // Hynix MLC 16nm       [ 1 DIE, 1 CE, 1 R/B, Common IO   ]     64Gb, Async
 
 /******************************************************************************
  * NAND Maker Micron
@@ -689,6 +689,7 @@ NFC_PHY_EXT int NFC_PHY_StatusIsARDY(unsigned char _status);
 NFC_PHY_EXT int NFC_PHY_StatusIsRDY(unsigned char _status);
 NFC_PHY_EXT int NFC_PHY_StatusIsWP(unsigned char _status);
 NFC_PHY_EXT unsigned char NFC_PHY_StatusRead(unsigned int _channel, unsigned int _way);
+NFC_PHY_EXT unsigned char NFC_PHY_StatusData(unsigned int _channel, unsigned int _way);
 
 /******************************************************************************
  *

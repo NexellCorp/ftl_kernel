@@ -122,9 +122,10 @@ struct mio_state
         spinlock_t queue_lock;
 
 #define MIO_IDLE        (0)
-#define MIO_BACKGROUND  (1)
-#define MIO_SUPER       (2)
-#define MIO_REQ_BUSY    (3)
+#define MIO_SCHEDULED   (1)
+#define MIO_BACKGROUND  (2)
+#define MIO_SUPER       (3)
+#define MIO_REQ_BUSY    (4)
         unsigned short status;
 
         struct

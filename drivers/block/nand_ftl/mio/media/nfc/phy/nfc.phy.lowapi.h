@@ -23,17 +23,17 @@
 
 typedef struct __MIO_NAND_INFO__
 {
-	unsigned char channel;
-	unsigned char phyway;
-	unsigned short pages_per_block;
-	unsigned short bytes_per_page;
-	unsigned short blocks_per_lun;
+    unsigned char channel;
+    unsigned char phyway;
+    unsigned short pages_per_block;
+    unsigned short bytes_per_page;
+    unsigned short blocks_per_lun;
 
-	unsigned short ecc_bits;
-	unsigned short bytes_per_ecc;
-	unsigned short bytes_per_parity;
+    unsigned short ecc_bits;
+    unsigned short bytes_per_ecc;
+    unsigned short bytes_per_parity;
 
-	unsigned int readretry_type;
+    unsigned int readretry_type;
 
 } MIO_NAND_INFO;
 
@@ -56,20 +56,20 @@ NFC_PHY_LOWAPI_EXT int NFC_PHY_LOWAPI_nand_erase(loff_t ofs, size_t size);
 /******************************************************************************
  * nand_raw_write
  * nand_raw_read
- * 
+ *
  *  - NoECC + NoReadRetry + NoRandomize + with rough timing
  *  - prerequisite: nothing (including NFC_PHY_LOWAPI_init())
  ******************************************************************************/
 typedef struct __MIO_NAND_RAW_INFO__
 {
-	unsigned char channel;
-	unsigned char phyway;
-	unsigned short pages_per_block;
-	unsigned short bytes_per_page;
-	unsigned short blocks_per_lun;
+    unsigned char channel;
+    unsigned char phyway;
+    unsigned short pages_per_block;
+    unsigned short bytes_per_page;
+    unsigned short blocks_per_lun;
 
 } MIO_NAND_RAW_INFO;
- 
+
 NFC_PHY_LOWAPI_EXT int NFC_PHY_LOWAPI_nand_raw_write(const MIO_NAND_RAW_INFO *info, loff_t ofs, size_t *len, u_char *buf);
 NFC_PHY_LOWAPI_EXT int NFC_PHY_LOWAPI_nand_raw_read(const MIO_NAND_RAW_INFO *info, loff_t ofs, size_t *len, u_char *buf);
 

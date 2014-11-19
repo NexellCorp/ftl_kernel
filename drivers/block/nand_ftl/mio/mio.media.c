@@ -97,10 +97,10 @@ int media_open(void)
     Exchange.sys.support_list.led_indicator = 1;
     Exchange.sys.support_list.spor = 1;
 
-    Exchange.sys.fnIndicatorReqBusy = media_indicator_busy0;
-    Exchange.sys.fnIndicatorReqIdle = media_indicator_idle0;
-    Exchange.sys.fnIndicatorNfcBusy = media_indicator_busy1;
-    Exchange.sys.fnIndicatorNfcIdle = media_indicator_idle1;
+    Exchange.sys.fn.IndicatorReqBusy = media_indicator_busy0;
+    Exchange.sys.fn.IndicatorReqIdle = media_indicator_idle0;
+    Exchange.sys.fn.IndicatorNfcBusy = media_indicator_busy1;
+    Exchange.sys.fn.IndicatorNfcIdle = media_indicator_idle1;
 
     media_indicator_init();
 
@@ -108,6 +108,7 @@ int media_open(void)
      * MIO Debug Options
      **************************************************************************/
   //Exchange.debug.misc.block = 1;
+  //Exchange.debug.misc.block_background = 1;
   //Exchange.debug.misc.media = 1;
 
     Exchange.debug.ftl.format = 1;
@@ -286,17 +287,7 @@ void media_write(sector_t _lba, unsigned int _seccnt, u8 * _buffer, void * _io_s
     Exchange.statistics.ios.accumulate.write += (seccnt << 9);
     Exchange.statistics.ios.accumulate.write_seccnt += seccnt;
 
-    {
-		media_super();
-#if 0
-        unsigned int super_loop = 40;
-
-        for (; super_loop; super_loop--)
-        {
-            media_super();
-        }
-#endif
-    }
+    media_super();
 #endif
 }
 

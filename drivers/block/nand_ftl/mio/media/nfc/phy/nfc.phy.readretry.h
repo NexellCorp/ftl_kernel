@@ -22,12 +22,13 @@
 /******************************************************************************
  *
  ******************************************************************************/
-#define NAND_PHY_HYNIX_READRETRY_TOTAL_CNT	    (12)
-#define NAND_PHY_HYNIX_READRETRY_REG_CNT	    (10)
+#define NAND_PHY_HYNIX_READRETRY_TOTAL_CNT      (12)
+#define NAND_PHY_HYNIX_READRETRY_REG_CNT        (10)
 
 typedef struct _NAND_HYNIX_READRETRY_REG_ADDRESS_
 {
-    unsigned int size_of_this;
+    unsigned int this_size;
+    unsigned int this_size_inverse;
 
     unsigned char addr[NAND_PHY_HYNIX_READRETRY_REG_CNT];
     unsigned char reserved[4 - NAND_PHY_HYNIX_READRETRY_REG_CNT%4]; // padding for 4 bytes align
@@ -36,7 +37,8 @@ typedef struct _NAND_HYNIX_READRETRY_REG_ADDRESS_
 
 typedef struct _NAND_HYNIX_READRETRY_REG_DATA_
 {
-    unsigned int size_of_this;
+    unsigned int this_size;
+    unsigned int this_size_inverse;
 
     unsigned char total_readretry_cnt;
     unsigned char readretry_reg_cnt;
@@ -50,7 +52,11 @@ typedef struct _NAND_HYNIX_READRETRY_REG_DATA_
 
 typedef struct _NAND_HYNIX_READRETRY_
 {
-    unsigned int size_of_this;
+    unsigned int this_size;
+    unsigned int this_size_inverse;
+
+    unsigned char this_signature[4];
+    unsigned char this_version[4];
 
     unsigned char max_channels;
     unsigned char max_ways;

@@ -15,7 +15,7 @@
 #include "nfc.phy.rand.h"
 
 /******************************************************************************
- * to use: printf(), malloc(), memset(), free() 
+ * to use: printf(), malloc(), memset(), free()
  ******************************************************************************/
 #include "../../exchange.h"
 #include "../../../mio.definition.h"
@@ -73,7 +73,7 @@
 extern int (*__print)(const char *, ...);
 
 /******************************************************************************
- * local 
+ * local
  ******************************************************************************/
 static struct
 {
@@ -88,22 +88,22 @@ static struct
 #define NFC_PHY_RAND_PAGESEED_CNT   (128)
 static unsigned short page_seed[NFC_PHY_RAND_PAGESEED_CNT] =
 {
-	0x576A, 0x05E8, 0x629D, 0x45A3, 0x649C, 0x4BF0, 0x2342, 0x272E,
-	0x7358, 0x4FF3, 0x73EC, 0x5F70, 0x7A60, 0x1AD8, 0x3472, 0x3612,
-	0x224F, 0x0454, 0x030E, 0x70A5, 0x7809, 0x2521, 0x48F4, 0x5A2D,
-	0x492A, 0x043D, 0x7F61, 0x3969, 0x517A, 0x3B42, 0x769D, 0x0647,
-	0x7E2A, 0x1383, 0x49D9, 0x07B8, 0x2578, 0x4EEC, 0x4423, 0x352F,
-	0x5B22, 0x72B9, 0x367B, 0x24B6, 0x7E8E, 0x2318, 0x6BD0, 0x5519,
-	0x1783, 0x18A7, 0x7B6E, 0x7602, 0x4B7F, 0x3648, 0x2C53, 0x6B99,
-	0x0C23, 0x67CF, 0x7E0E, 0x4D8C, 0x5079, 0x209D, 0x244A, 0x747B, // 64
-	0x350B, 0x0E4D, 0x7004, 0x6AC3, 0x7F3E, 0x21F5, 0x7A15, 0x2379,
-	0x1517, 0x1ABA, 0x4E77, 0x15A1, 0x04FA, 0x2D61, 0x253A, 0x1302,
-	0x1F63, 0x5AB3, 0x049A, 0x5AE8, 0x1CD7, 0x4A00, 0x30C8, 0x3247,
-	0x729C, 0x5034, 0x2B0E, 0x57F2, 0x00E4, 0x575B, 0x6192, 0x38F8,
-	0x2F6A, 0x0C14, 0x45FC, 0x41DF, 0x38DA, 0x7AE1, 0x7322, 0x62DF,
-	0x5E39, 0x0E64, 0x6D85, 0x5951, 0x5937, 0x6281, 0x33A1, 0x6A32,
-	0x3A5A, 0x2BAC, 0x743A, 0x5E74, 0x3B2E, 0x7EC7, 0x4FD2, 0x5D28,
-	0x751F, 0x3EF8, 0x39B1, 0x4E49, 0x746B, 0x6EF6, 0x44BE, 0x6DB7,	// 128
+    0x576A, 0x05E8, 0x629D, 0x45A3, 0x649C, 0x4BF0, 0x2342, 0x272E,
+    0x7358, 0x4FF3, 0x73EC, 0x5F70, 0x7A60, 0x1AD8, 0x3472, 0x3612,
+    0x224F, 0x0454, 0x030E, 0x70A5, 0x7809, 0x2521, 0x48F4, 0x5A2D,
+    0x492A, 0x043D, 0x7F61, 0x3969, 0x517A, 0x3B42, 0x769D, 0x0647,
+    0x7E2A, 0x1383, 0x49D9, 0x07B8, 0x2578, 0x4EEC, 0x4423, 0x352F,
+    0x5B22, 0x72B9, 0x367B, 0x24B6, 0x7E8E, 0x2318, 0x6BD0, 0x5519,
+    0x1783, 0x18A7, 0x7B6E, 0x7602, 0x4B7F, 0x3648, 0x2C53, 0x6B99,
+    0x0C23, 0x67CF, 0x7E0E, 0x4D8C, 0x5079, 0x209D, 0x244A, 0x747B, // 64
+    0x350B, 0x0E4D, 0x7004, 0x6AC3, 0x7F3E, 0x21F5, 0x7A15, 0x2379,
+    0x1517, 0x1ABA, 0x4E77, 0x15A1, 0x04FA, 0x2D61, 0x253A, 0x1302,
+    0x1F63, 0x5AB3, 0x049A, 0x5AE8, 0x1CD7, 0x4A00, 0x30C8, 0x3247,
+    0x729C, 0x5034, 0x2B0E, 0x57F2, 0x00E4, 0x575B, 0x6192, 0x38F8,
+    0x2F6A, 0x0C14, 0x45FC, 0x41DF, 0x38DA, 0x7AE1, 0x7322, 0x62DF,
+    0x5E39, 0x0E64, 0x6D85, 0x5951, 0x5937, 0x6281, 0x33A1, 0x6A32,
+    0x3A5A, 0x2BAC, 0x743A, 0x5E74, 0x3B2E, 0x7EC7, 0x4FD2, 0x5D28,
+    0x751F, 0x3EF8, 0x39B1, 0x4E49, 0x746B, 0x6EF6, 0x44BE, 0x6DB7, // 128
 };
 
 /******************************************************************************
@@ -111,36 +111,36 @@ static unsigned short page_seed[NFC_PHY_RAND_PAGESEED_CNT] =
  ******************************************************************************/
 static int randomizer_page(int page, unsigned char *buffer, int size, unsigned char auto_disable)
 {
-	unsigned short seed = page_seed[page & (NFC_PHY_RAND_PAGESEED_CNT-1)];
-	unsigned char ch;
-	int i = 0;
-	int ff_cnt = 0;
+    unsigned short seed = page_seed[page & (NFC_PHY_RAND_PAGESEED_CNT-1)];
+    unsigned char ch;
+    int i = 0;
+    int ff_cnt = 0;
 
-	for (; size > i; i++)
+    for (; size > i; i++)
     {
-    	unsigned char x0 = (seed & (1<<14)) ? 0xff : 0;
-    	unsigned char x1 = (seed & (1<<13)) ? 0xff : 0;
-	    unsigned char ret = x0 ^ x1;
-		seed = (seed<<1) | (ret & 0x1);
-		ch = buffer[i] ^ ret;
+        unsigned char x0 = (seed & (1<<14)) ? 0xff : 0;
+        unsigned char x1 = (seed & (1<<13)) ? 0xff : 0;
+        unsigned char ret = x0 ^ x1;
+        seed = (seed<<1) | (ret & 0x1);
+        ch = buffer[i] ^ ret;
 
         if (buffer[i] == 0xFF)
         {
             ff_cnt += 1;
         }
 
-		buffer[i] = ch;
-	}
+        buffer[i] = ch;
+    }
 
     if (auto_disable)
     {
-    	if (ff_cnt > ((size * 95) / 100))
-    	{
+        if (ff_cnt > ((size * 95) / 100))
+        {
             memset((void *)buffer, 0xFF, size);
-    	}
+        }
     }
 
-	return 0;
+    return 0;
 }
 
 /******************************************************************************
@@ -163,7 +163,7 @@ int NFC_PHY_RAND_Init(int _buf_size)
         randomizer.buf_size = _buf_size;
         return 0;
     }
-    
+
     return -1;
 }
 
@@ -185,7 +185,7 @@ void NFC_PHY_RAND_DeInit(void)
 void NFC_PHY_RAND_Enable(unsigned char _enable)
 {
     if (Exchange.debug.nfc.phy.info_randomizer) { __print("NFC_PHY_RAND_Enable: %d \n", _enable); }
-	randomizer.enable = (_enable)? 1: 0;
+    randomizer.enable = (_enable)? 1: 0;
 }
 
 int NFC_PHY_RAND_IsEnable(void)
@@ -204,33 +204,32 @@ void * NFC_PHY_RAND_Randomize(void *_buf, int _buf_size, unsigned char keep)
     int size = _buf_size;
     int auto_disable = 0;
 
-	if (!randomizer.enable)
-	{
-		return (void *)rand_buf;
-	}
+    if (!randomizer.enable)
+    {
+        return (void *)rand_buf;
+    }
 
-	if (!rand_buf || (size > randomizer.buf_size))
-	{
+    if (!rand_buf || (size > randomizer.buf_size))
+    {
         if (Exchange.debug.nfc.phy.info_randomizer) { __print("NFC_PHY_RAND_Randomize: error: rand_buf:0x%08x, size:%d\n", (unsigned int)rand_buf, size); }
 
-		return (void *)rand_buf;
-	}
+        return (void *)rand_buf;
+    }
 
-	if (keep)
-	{
+    if (keep)
+    {
         auto_disable = 0;
         rand_buf = randomizer.buf;
         memcpy((void *)rand_buf, (const void *)_buf, size);
-	}
-	else
-	{
+    }
+    else
+    {
         auto_disable = 1;
-	}
+    }
 
     if (Exchange.debug.nfc.phy.info_randomizer) { __print("NFC_PHY_RAND_Randomize: Pg:%d, size:%5d, Src : %08x, %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x \n", randomizer.curr_page, size, (unsigned int)rand_buf, rand_buf[0], rand_buf[1], rand_buf[2], rand_buf[3], rand_buf[4], rand_buf[5], rand_buf[6], rand_buf[7], rand_buf[8], rand_buf[9], rand_buf[10], rand_buf[11], rand_buf[12], rand_buf[13], rand_buf[14], rand_buf[15]); }
-	randomizer_page(randomizer.curr_page, rand_buf, size, auto_disable);
+    randomizer_page(randomizer.curr_page, rand_buf, size, auto_disable);
     if (Exchange.debug.nfc.phy.info_randomizer) { __print("NFC_PHY_RAND_Randomize: Pg:%d, size:%5d, Dest: %08x, %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x \n", randomizer.curr_page, size, (unsigned int)rand_buf, rand_buf[0], rand_buf[1], rand_buf[2], rand_buf[3], rand_buf[4], rand_buf[5], rand_buf[6], rand_buf[7], rand_buf[8], rand_buf[9], rand_buf[10], rand_buf[11], rand_buf[12], rand_buf[13], rand_buf[14], rand_buf[15]); }
 
-	return (void *)rand_buf;
+    return (void *)rand_buf;
 }
-

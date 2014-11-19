@@ -138,15 +138,17 @@ void EXCHANGE_init(void)
     Exchange.nfc.fnRandomize_Init = NFC_PHY_RAND_Init;
     Exchange.nfc.fnRandomize_DeInit = NFC_PHY_RAND_DeInit;
 
-    Exchange.std.__print = printk;
-    Exchange.std.__sprintf = sprintf;
-    Exchange.std.__strlen = strlen;
-    Exchange.std.__memset = memset;
-    Exchange.std.__memcpy = memcpy;
-    Exchange.std.__memcmp = memcmp;
-    Exchange.std.__div64 = __div64;
-    Exchange.std.__get_crc16 = EXCHANGE_GetCRC16;
-    Exchange.std.__get_crc32 = EXCHANGE_GetCRC32;
+    Exchange.sys.fn.usleep = usleep_range;
+    Exchange.sys.fn.msleep = msleep;
+    Exchange.sys.fn.print = printk;
+    Exchange.sys.fn.sprintf = sprintf;
+    Exchange.sys.fn.strlen = strlen;
+    Exchange.sys.fn.memset = memset;
+    Exchange.sys.fn.memcpy = memcpy;
+    Exchange.sys.fn.memcmp = memcmp;
+    Exchange.sys.fn.div64 = __div64;
+    Exchange.sys.fn.get_crc16 = EXCHANGE_GetCRC16;
+    Exchange.sys.fn.get_crc32 = EXCHANGE_GetCRC32;
 
 #elif defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
 
@@ -165,19 +167,19 @@ void EXCHANGE_init(void)
     Exchange.nfc.fnRandomize_Init = NFC_PHY_RAND_Init;
     Exchange.nfc.fnRandomize_DeInit = NFC_PHY_RAND_DeInit;
 
-    Exchange.std.__print = printf;
-    Exchange.std.__sprintf = sprintf;
-    Exchange.std.__strlen = strlen;
-    Exchange.std.__memset = memset;
-    Exchange.std.__memcpy = memcpy;
-    Exchange.std.__memcmp = memcmp;
-    Exchange.std.__div64 = __div64;
-    Exchange.std.__get_crc16 = EXCHANGE_GetCRC16;
-    Exchange.std.__get_crc32 = EXCHANGE_GetCRC32;
+    Exchange.sys.fn.print = printf;
+    Exchange.sys.fn.sprintf = sprintf;
+    Exchange.sys.fn.strlen = strlen;
+    Exchange.sys.fn.memset = memset;
+    Exchange.sys.fn.memcpy = memcpy;
+    Exchange.sys.fn.memcmp = memcmp;
+    Exchange.sys.fn.div64 = __div64;
+    Exchange.sys.fn.get_crc16 = EXCHANGE_GetCRC16;
+    Exchange.sys.fn.get_crc32 = EXCHANGE_GetCRC32;
 
 #endif
 
-    Exchange.std.__print("FTL Start Address: 0x%x\n", nxp_ftl_start_block);
+    Exchange.sys.fn.print("FTL Start Address: 0x%x\n", nxp_ftl_start_block);
 }
 
 /******************************************************************************

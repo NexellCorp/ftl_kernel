@@ -353,16 +353,16 @@ int miosys_print_smart(void)
         }
     }
 
-    DBG_MIOSYS(KERN_INFO " current read bytes:      %8lldMB (%lld sectors)", (MioSmartInfo.io_current.read_bytes >> 20), MioSmartInfo.io_current.read_sectors);
-    DBG_MIOSYS(KERN_INFO " current write bytes:     %8lldMB (%lld sectors)", (MioSmartInfo.io_current.write_bytes >> 20), MioSmartInfo.io_current.write_sectors);
-    DBG_MIOSYS(KERN_INFO " accumulated read bytes:  %8lldMB (%lld sectors)", (MioSmartInfo.io_accumulate.read_bytes >> 20), MioSmartInfo.io_accumulate.read_sectors);
-    DBG_MIOSYS(KERN_INFO " accumulated write bytes: %8lldMB (%lld sectors)", (MioSmartInfo.io_accumulate.write_bytes >> 20), MioSmartInfo.io_accumulate.write_sectors);
+    DBG_MIOSYS(KERN_INFO " current read bytes:       %8lld MB (%lld sectors)", (MioSmartInfo.io_current.read_bytes >> 20), MioSmartInfo.io_current.read_sectors);
+    DBG_MIOSYS(KERN_INFO " current write bytes:      %8lld MB (%lld sectors)", (MioSmartInfo.io_current.write_bytes >> 20), MioSmartInfo.io_current.write_sectors);
+    DBG_MIOSYS(KERN_INFO " accumulated read bytes:   %8lld MB (%lld sectors)", (MioSmartInfo.io_accumulate.read_bytes >> 20), MioSmartInfo.io_accumulate.read_sectors);
+    DBG_MIOSYS(KERN_INFO " accumulated write bytes:  %8lld MB (%lld sectors)", (MioSmartInfo.io_accumulate.write_bytes >> 20), MioSmartInfo.io_accumulate.write_sectors);
 
-    DBG_MIOSYS(KERN_INFO " sum of erasecount:     %u", sum_erasecount);
-    DBG_MIOSYS(KERN_INFO " sum of usable blocks:  %u", sum_usableblocks);
-    DBG_MIOSYS(KERN_INFO " max erasecount:        %u", max_erasecount);
-    DBG_MIOSYS(KERN_INFO " min erasecount:        %u", min_erasecount);
-    DBG_MIOSYS(KERN_INFO " average erasecount:    %u.%02u", average_erasecount[0], average_erasecount[1]);
+    DBG_MIOSYS(KERN_INFO " sum of erasecount:          %u", sum_erasecount);
+    DBG_MIOSYS(KERN_INFO " sum of usable blocks:       %u", sum_usableblocks);
+    DBG_MIOSYS(KERN_INFO " max erasecount:             %u", max_erasecount);
+    DBG_MIOSYS(KERN_INFO " min erasecount:             %u", min_erasecount);
+    DBG_MIOSYS(KERN_INFO " average erasecount:         %u.%02u", average_erasecount[0], average_erasecount[1]);
     DBG_MIOSYS(KERN_INFO " current readretrycount:     %u", *Exchange.ftl.ReadRetryCount);
     DBG_MIOSYS(KERN_INFO " accumulated readretrycount: %u", accumulated_sum_readretrycount);
 
@@ -372,7 +372,21 @@ int miosys_print_smart(void)
     {
         for (channel=0; channel < *Exchange.ftl.Channel; channel++)
         {
-            DBG_MIOSYS(KERN_INFO " NAND channel:%02d way:%02d's", channel, way);
+            unsigned int max_channel = 0;
+            unsigned int max_way = 0;
+            NAND nand;
+
+            unsigned int total_block = 0;
+            unsigned int total_usable_block = 0;
+            unsigned int total_bad_block = 0;
+            unsigned int retired_block = 0;
+            unsigned int free_block = 0;
+            unsigned int used_block = 0;
+
+            Exchange.nfc.fnGetFeatures(&max_channel, &max_way, (void *)&nand);
+            total_block = nand._f.mainblocks_per_lun;
+
+            DBG_MIOSYS(KERN_INFO "\n NAND channel:%d way:%d summary", channel, way);
 
             pnand_accumulate = &(MioSmartInfo.nand_accumulate[way][channel]);
             pnand_current = &(MioSmartInfo.nand_current[way][channel]);
@@ -381,35 +395,51 @@ int miosys_print_smart(void)
                 return -1;
             }
 
+            total_usable_block = total_block - Exchange.ftl.fnGetBlocksCount(channel, way, BLOCK_TYPE_DATA_HOT_BAD, BLOCK_TYPE_DATA_COLD_BAD, BLOCK_TYPE_FBAD, BLOCK_TYPE_IBAD, BLOCK_TYPE_RBAD, 0xFF);
+            total_bad_block    = Exchange.ftl.fnGetBlocksCount(channel, way, BLOCK_TYPE_DATA_HOT_BAD, BLOCK_TYPE_DATA_COLD_BAD, BLOCK_TYPE_FBAD, BLOCK_TYPE_IBAD, BLOCK_TYPE_RBAD, 0xFF);
+            retired_block      = Exchange.ftl.fnGetBlocksCount(channel, way, BLOCK_TYPE_DATA_HOT_BAD, BLOCK_TYPE_DATA_COLD_BAD, BLOCK_TYPE_RBAD, 0xFF);
+            free_block         = Exchange.ftl.fnGetBlocksCount(channel, way, BLOCK_TYPE_FREE, 0xFF);
+            used_block         = total_usable_block - free_block;
+            DBG_MIOSYS(KERN_INFO " - total block:        %d", total_block);
+            DBG_MIOSYS(KERN_INFO " - total usable block: %d", total_usable_block);
+            DBG_MIOSYS(KERN_INFO " - total bad block:    %d", total_bad_block);
+            DBG_MIOSYS(KERN_INFO " - retired block:      %d", retired_block);
+            DBG_MIOSYS(KERN_INFO " - free block:         %d", free_block);
+            DBG_MIOSYS(KERN_INFO " - used block:         %d", used_block);
+
+
+//                               "                               ********** *******************"
+            DBG_MIOSYS(KERN_INFO "                                  current         accumulated");
+
             // ECC corrected
             pcurrent = &(pnand_current->ecc_sector.corrected);
             paccumulate = &(pnand_accumulate->ecc_sector.corrected);
-            DBG_MIOSYS(KERN_INFO "  ECC corrected sectors:      current:%9u, accumulated:%9u", *pcurrent, *paccumulate);
+            DBG_MIOSYS(KERN_INFO " - ecc corrected sectors:      %10u %19u", *pcurrent, *paccumulate);
 
             // ECC leveldetected
             pcurrent = &(pnand_current->ecc_sector.leveldetected);
             paccumulate = &(pnand_accumulate->ecc_sector.leveldetected);
-            DBG_MIOSYS(KERN_INFO "  ECC leveldetected sectors:  current:%9u, accumulated:%9u", *pcurrent, *paccumulate);
+            DBG_MIOSYS(KERN_INFO " - ecc leveldetected sectors:  %10u %19u", *pcurrent, *paccumulate);
 
             // ECC uncorrectable
             pcurrent = &(pnand_current->ecc_sector.uncorrectable);
             paccumulate = &(pnand_accumulate->ecc_sector.uncorrectable);
-            DBG_MIOSYS(KERN_INFO "  ECC uncorrectable sectors:  current:%9u, accumulated:%9u", *pcurrent, *paccumulate);
+            DBG_MIOSYS(KERN_INFO " - ecc uncorrectable sectors:  %10u %19u", *pcurrent, *paccumulate);
 
             // write fail
             pcurrent = &(pnand_current->writefail_count);
             paccumulate = &(pnand_accumulate->writefail_count);
-            DBG_MIOSYS(KERN_INFO "  write operation fail count: current:%9u, accumulated:%9u", *pcurrent, *paccumulate);
+            DBG_MIOSYS(KERN_INFO " - write operation fail count: %10u %19u", *pcurrent, *paccumulate);
 
             // erase fail
             pcurrent = &(pnand_current->erasefail_count);
             paccumulate = &(pnand_accumulate->erasefail_count);
-            DBG_MIOSYS(KERN_INFO "  erase operation fail count: current:%9u, accumulated:%9u", *pcurrent, *paccumulate);
+            DBG_MIOSYS(KERN_INFO " - erase operation fail count: %10u %19u", *pcurrent, *paccumulate);
 
             // read retry count
             pcurrent = &(pnand_current->readretry_count);
             paccumulate = &(pnand_accumulate->readretry_count);
-            DBG_MIOSYS(KERN_INFO "  Read retry count:           current:%9u, accumulated:%9u", *pcurrent, *paccumulate);
+            DBG_MIOSYS(KERN_INFO " - Read retry count:           %10u %19u", *pcurrent, *paccumulate);
 
         }
     }

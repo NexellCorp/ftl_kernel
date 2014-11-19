@@ -106,14 +106,14 @@ static int mio_background_thread(void * _arg)
     while (!kthread_should_stop())
     {
         Exchange.sys.fnSpor();
-        msleep(10);
+        msleep(1);
 
         /**************************************************************************
          * Transaction Pending
          **************************************************************************/
         if (io_state->transaction.wake.cnt && (get_jiffies_64() > io_state->transaction.wake.time))
         {
-            io_state->transaction.wake.time = get_jiffies_64() + MIO_TIME_MSEC(10);
+            io_state->transaction.wake.time = get_jiffies_64() + MIO_TIME_MSEC(1);
 
             if (!io_state->power.suspending)
             {
@@ -138,7 +138,7 @@ static int mio_background_thread(void * _arg)
             {
                 // Clear Trigger
                 io_state->transaction.trigger.e.written_flush = 0;
-   
+
                 // Set Background Jobs
                 io_state->background.t.flush = MIO_TIME_DIFF_MAX(get_jiffies_64());
                 io_state->background.e.flush = 1;
@@ -167,7 +167,7 @@ static int mio_background_thread(void * _arg)
             }
    
             // Wake-Up Transaction Thread
-            if (io_state->background.e.flush + io_state->background.e.standby + io_state->background.e.bgjobs)
+            if (io_state->background.e.save_smart + io_state->background.e.flush + io_state->background.e.standby + io_state->background.e.bgjobs)
             {
                 wake_up_process(io_state->transaction.thread);
             }
@@ -195,14 +195,12 @@ void mio_background(struct mio_state * _io_state)
         
         miosmart_update_eccstatus();
         miosmart_save();
+    
+        // Over-Head Spread
+        io_state->background.e.flush = 0;
+        io_state->background.e.standby = 0;
+        io_state->background.e.bgjobs = 0;
     }
-
-#if 0
-    if (get_jiffies_64() > io_state->background.t.statistics)
-    {
-        io_state->background.t.statistics = get_jiffies_64() + MIO_TIME_SEC(10*60);
-    }
-#endif
 
     /**************************************************************************
      * MIO Background : Background Operations (Migration, Garbage Collection, ...)
@@ -210,6 +208,11 @@ void mio_background(struct mio_state * _io_state)
     if (io_state->background.e.flush)
     {
         io_state->background.e.flush = 0;
+
+        if (Exchange.debug.misc.block_background)
+        {
+            __PRINT("Block : Background flush\n");
+        }
 
         media_flush(io_state);
         while (!media_is_idle(io_state));
@@ -219,6 +222,11 @@ void mio_background(struct mio_state * _io_state)
     {
         io_state->background.e.standby = 0;
 
+        if (Exchange.debug.misc.block_background)
+        {
+            __PRINT("Block : Background standby\n");
+        }
+
         media_standby(io_state);
         while (!media_is_idle(io_state));
     }
@@ -226,6 +234,11 @@ void mio_background(struct mio_state * _io_state)
     if (io_state->background.e.bgjobs)
     {
         io_state->background.e.bgjobs = 0;
+    
+        if (Exchange.debug.misc.block_background)
+        {
+            __PRINT("Block : Background bgjobs\n");
+        }
 
         media_background(io_state);
         while (!media_is_idle(io_state));
@@ -266,11 +279,11 @@ static int mio_transaction(struct request * _req, struct mio_state * _io_state)
             return -EIO;
         }
 
-        io_state->background.t.standby = get_jiffies_64() + MIO_TIME_MSEC(100);
+        io_state->background.t.standby = get_jiffies_64() + MIO_TIME_MSEC(500);
         io_state->background.e.standby = 0;
         io_state->transaction.trigger.e.written_standby = 1;
 
-        io_state->background.t.bgjobs = get_jiffies_64() + MIO_TIME_MSEC(200);
+        io_state->background.t.bgjobs = get_jiffies_64() + MIO_TIME_SEC(1);
         io_state->background.e.bgjobs = 0;
         io_state->transaction.trigger.e.written_bgjobs = 1;
 
@@ -297,6 +310,7 @@ static int mio_transaction(struct request * _req, struct mio_state * _io_state)
             MioSmartInfo.io_current.read_sectors += req_seccnt;
             MioSmartInfo.io_accumulate.read_bytes += (req_seccnt << 9);
             MioSmartInfo.io_accumulate.read_sectors += req_seccnt;
+
         } break;
 
         case WRITE:
@@ -307,15 +321,16 @@ static int mio_transaction(struct request * _req, struct mio_state * _io_state)
             MioSmartInfo.io_current.write_sectors += req_seccnt;
             MioSmartInfo.io_accumulate.write_bytes += (req_seccnt << 9);
             MioSmartInfo.io_accumulate.write_sectors += req_seccnt;
+
         } break;
     }
 
     io_state->transaction.trigger.t.ioed = get_jiffies_64();
-    io_state->background.t.flush = get_jiffies_64() + MIO_TIME_MSEC(50);
+    io_state->background.t.flush = get_jiffies_64() + MIO_TIME_MSEC(100);
     io_state->background.e.flush = 0;
-    io_state->background.t.standby = get_jiffies_64() + MIO_TIME_MSEC(100);
+    io_state->background.t.standby = get_jiffies_64() + MIO_TIME_MSEC(500);
     io_state->background.e.standby = 0;
-    io_state->background.t.bgjobs = get_jiffies_64() + MIO_TIME_MSEC(200);
+    io_state->background.t.bgjobs = get_jiffies_64() + MIO_TIME_SEC(1);
     io_state->background.e.bgjobs = 0;
 
     // !! Trigger Must Be Here !!
@@ -394,35 +409,22 @@ static int mio_transaction_thread(void * _arg)
                 io_state->transaction.status = MIO_IDLE;
             }
 
-            // Super Jobs
-            if (!io_state->power.suspending && (io_state->transaction.trigger.t.ioed + MIO_TIME_MSEC(50)) > get_jiffies_64())
+            io_state->transaction.trigger.t.ioed = MIO_TIME_DIFF_MAX(get_jiffies_64());
+
+            set_current_state(TASK_INTERRUPTIBLE);
+
+            if (kthread_should_stop())
             {
-                io_state->transaction.status = MIO_SUPER;
-                spin_unlock_irq(rq->queue_lock);
-                {
-                    media_super();
-                }
-                spin_lock_irq(rq->queue_lock);
+                set_current_state(TASK_RUNNING);
+            }
+
+            spin_unlock_irq(rq->queue_lock);
+            {
+                io_state->transaction.status = MIO_SCHEDULED;
+                schedule();
                 io_state->transaction.status = MIO_IDLE;
             }
-            // Thread Sleep
-            else
-            {
-                io_state->transaction.trigger.t.ioed = MIO_TIME_DIFF_MAX(get_jiffies_64());
-
-                set_current_state(TASK_INTERRUPTIBLE);
-
-                if (kthread_should_stop())
-                {
-                    set_current_state(TASK_RUNNING);
-                }
-
-                spin_unlock_irq(rq->queue_lock);
-                {
-                    schedule();
-                }
-                spin_lock_irq(rq->queue_lock);
-            }
+            spin_lock_irq(rq->queue_lock);
 
             continue;
         }
@@ -437,7 +439,7 @@ static int mio_transaction_thread(void * _arg)
             if (io_state->transaction.wake.cnt) { io_state->transaction.wake.cnt -= 1; }
             io_state->transaction.wake.time = MIO_TIME_DIFF_MAX(get_jiffies_64());
 
-            if (Exchange.sys.fnIndicatorReqIdle) { Exchange.sys.fnIndicatorReqIdle(); }
+          //if (Exchange.sys.fn.IndicatorReqIdle) { Exchange.sys.fn.IndicatorReqIdle(); }
         }
         spin_lock_irq(rq->queue_lock);
         io_state->transaction.status = MIO_IDLE;
@@ -468,9 +470,9 @@ static void mio_request_fetch(struct request_queue * _q)
     struct mio_state * io_state = _q->queuedata;
 
     // Wake Up Thread
-    if (Exchange.sys.fnIndicatorReqBusy) { Exchange.sys.fnIndicatorReqBusy(); }
+  //if (Exchange.sys.fn.IndicatorReqBusy) { Exchange.sys.fn.IndicatorReqBusy(); }
     io_state->transaction.wake.cnt += 1;
-    io_state->transaction.wake.time = get_jiffies_64() + MIO_TIME_MSEC(10);
+    io_state->transaction.wake.time = get_jiffies_64() + MIO_TIME_MSEC(1);
 
     wake_up_process(io_state->transaction.thread);
 }
@@ -575,12 +577,15 @@ static int __init mio_init(void)
         /**************************************************************************
          * KThreads
          **************************************************************************/
-        // get_cpu() 후에 put_cpu()
+//#define THREAD_BIND_TO_CORE
+
         if (NULL == mio_dev.io_state->transaction.thread)
         {
+#if !defined (THREAD_BIND_TO_CORE)
             mio_dev.io_state->transaction.thread = (struct task_struct *)kthread_run(mio_transaction_thread, mio_dev.io_state, "mio_transaction_thread");
-          //mio_dev.io_state->transaction.thread = (struct task_struct *)kthread_create(mio_transaction_thread, mio_dev.io_state, "mio_transaction_thread");
-
+#else
+            mio_dev.io_state->transaction.thread = (struct task_struct *)kthread_create(mio_transaction_thread, mio_dev.io_state, "mio_transaction_thread");
+#endif
             if (IS_ERR(mio_dev.io_state->transaction.thread))
             {
                 mio_dev.io_state->transaction.thread = NULL;
@@ -588,9 +593,11 @@ static int __init mio_init(void)
                 blk_cleanup_queue(mio_dev.io_state->transaction.rq);
                 return -ENODEV;
             }
-
-          //kthread_bind(mio_dev.io_state->transaction.thread, 0);
-          //wake_up_process(mio_dev.io_state->transaction.thread);
+#if defined (THREAD_BIND_TO_CORE)
+            // get_cpu() 후에 put_cpu()
+            kthread_bind(mio_dev.io_state->transaction.thread, 0);
+            wake_up_process(mio_dev.io_state->transaction.thread);
+#endif
         }
 
         if (NULL == mio_dev.io_state->background.thread)
@@ -743,11 +750,13 @@ static void __exit mio_exit(void)
 static int nand_suspend(struct platform_device * pdev, pm_message_t state)
 {
     mio_dev.io_state->power.suspending = 1;
-    while (MIO_IDLE != mio_dev.io_state->transaction.status) { usleep_range(1,1); }
+
+    usleep_range(10,100);
+    while (MIO_SCHEDULED != mio_dev.io_state->transaction.status) { usleep_range(1,1); }
 
     media_suspend();
 
-	return 0;
+    return 0;
 }
 
 /******************************************************************************
@@ -759,7 +768,7 @@ static int nand_resume(struct platform_device *pdev)
 
     mio_dev.io_state->power.suspending = 0;
 
-	return 0;
+    return 0;
 }
 
 /******************************************************************************
@@ -769,13 +778,13 @@ static SIMPLE_DEV_PM_OPS(nand_pmops, nand_suspend, nand_resume);
 
 static struct platform_driver nand_driver =
 {
-	.driver		= {
-	.name		= DEV_NAME_NAND,
-	.pm			= &nand_pmops,
-	.owner		= THIS_MODULE,
-	},
-	//.suspend = nand_suspend,
-	//.resume = nand_resume,
+    .driver = {
+    .name   = DEV_NAME_NAND,
+    .pm     = &nand_pmops,
+    .owner  = THIS_MODULE,
+    },
+  //.suspend = nand_suspend,
+  //.resume  = nand_resume,
 };
 
 /******************************************************************************
@@ -783,16 +792,16 @@ static struct platform_driver nand_driver =
  ******************************************************************************/
 static int __init nand_init(void)
 {
-	platform_driver_register(&nand_driver);
-	mio_init();
+    platform_driver_register(&nand_driver);
+    mio_init();
 
-	return 0;
+    return 0;
 }
 
 static void __exit nand_exit(void)
 {
-	mio_exit();
-	platform_driver_unregister(&nand_driver);
+    mio_exit();
+    platform_driver_unregister(&nand_driver);
 }
 
 

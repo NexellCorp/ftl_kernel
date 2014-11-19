@@ -178,7 +178,7 @@ int NFC_PHY_LOWAPI_raw_init(void)
     regval |= (((temp_reval >> NFCONTROL_EXSEL_R) & 0x1) << NFCONTROL_EXSEL_W);
 
     *pNFCONTROL = regval;
-    
+
     // Clear InterruptPending
     regval = *pNFCONTROL;
     regval &= ~((1 << NFCONTROL_IRQPEND) | (1 << NFCONTROL_ECCRST));
@@ -200,7 +200,7 @@ int NFC_PHY_LOWAPI_raw_init(void)
     regval |= (((temp_reval >> NFCONTROL_EXSEL_R) & 0x1) << NFCONTROL_EXSEL_W);
 
     *pNFCONTROL = regval;
-    
+
     DBG_PHY_LOWAPI_RAW("nfc.phy.raw.api : NFC_PHY_LOWAPI_raw_init\n");
 }
 #endif
@@ -236,7 +236,7 @@ void NFC_PHY_LOW_API_RAW_ChipSelect(unsigned int channel, unsigned int way, unsi
 
     *pNFCONTROL = regval;
 
-    // SetNFCS 
+    // SetNFCS
     regval = *pNFCONTROL;
     regval &= ~(1 << NFCONTROL_IRQPEND);
     if (select) { regval |= (1 << NFCONTROL_NCSENB); }
@@ -323,7 +323,7 @@ int NFC_PHY_LOW_API_RAW_read(const MIO_NAND_RAW_INFO *info, unsigned int block_o
                     *data++ = *pNFDATA;
                 }
             }
-    
+
             if (failed)
             {
                 curr_blockindex += 1;
@@ -347,7 +347,7 @@ int NFC_PHY_LOW_API_RAW_read(const MIO_NAND_RAW_INFO *info, unsigned int block_o
         }
     }
     NFC_PHY_LOW_API_RAW_ChipSelect(channel, phyway, 0);
-    
+
     return curr_blockindex;
 }
 
@@ -397,7 +397,7 @@ int NFC_PHY_LOW_API_RAW_write(const MIO_NAND_RAW_INFO *info, unsigned int block_
             curr_bytes = bytes_per_page;
             if (curr_bytes > remain_bytes)
                 curr_bytes = remain_bytes;
-             
+
             data = curr_buff;
             for (write_loop = 0; write_loop < curr_bytes; write_loop++)
             {

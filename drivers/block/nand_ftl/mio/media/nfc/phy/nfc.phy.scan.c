@@ -82,7 +82,7 @@ unsigned int NFC_PHY_GetEccBitsOfBlockInformation(unsigned int _data_bytes_per_p
             break;
         }
     }
-    
+
     return eccbits_per_blockinformation;
 }
 
@@ -556,7 +556,7 @@ unsigned int NFC_PHY_ConfigOnfi(unsigned char * _id, unsigned int _nand, void * 
     // 2: CMD1(0x60)-ADDR-CMD2(0xD1)-BSY-CMD1(0x60)-ADDR-CMD2(0xD0)-BSY
     nand_config->_f.support_type.multiplane_erase    = multiplane_erase_type;
 
-    nand_config->_f.support_type.read_retry          = read_retry_type;  
+    nand_config->_f.support_type.read_retry          = read_retry_type;
 
     nand_config->_f.step_of_static_wear_leveling     = (nand_config->_f.block_endurance * 20) / 100; // Endurance's 20%
   //nand_config->_f.max_channel;
@@ -710,7 +710,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tWW   = 100;   // ns
                     nand_config->_f.timing.async.tRR   = 20;    // ns
                     nand_config->_f.timing.async.tFEAT = 1000;  // ns
-                    
+
                     nand_config->_f.timing.async.tCS  = 20;     // ns
                     nand_config->_f.timing.async.tCH  = 5;      // ns
                     nand_config->_f.timing.async.tCLS = 6;      // ns
@@ -722,7 +722,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tWC  = 16;     // ns
                     nand_config->_f.timing.async.tDS  = 6;      // ns
                     nand_config->_f.timing.async.tDH  = 2;      // ns
-                    
+
                     nand_config->_f.timing.async.tCEA = 10+16;  // ns
                     nand_config->_f.timing.async.tREA = 16;     // ns
                     nand_config->_f.timing.async.tRP  = 8;      // ns
@@ -730,13 +730,13 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tRC  = 16;     // ns
                     nand_config->_f.timing.async.tCOH = 15;     // ns
 #else
-                    nand_config->_f.timing.async.tClk  = __MHZ(50); 
-                    nand_config->_f.timing.async.tRWC  = 20; 
-                    nand_config->_f.timing.async.tR    = 100000; 
-                    nand_config->_f.timing.async.tWB   = 100; 
+                    nand_config->_f.timing.async.tClk  = __MHZ(50);
+                    nand_config->_f.timing.async.tRWC  = 20;
+                    nand_config->_f.timing.async.tR    = 100000;
+                    nand_config->_f.timing.async.tWB   = 100;
                     nand_config->_f.timing.async.tCCS  = 200;
-                    nand_config->_f.timing.async.tADL  = 400; 
-                    nand_config->_f.timing.async.tRHW  = 100; 
+                    nand_config->_f.timing.async.tADL  = 400;
+                    nand_config->_f.timing.async.tRHW  = 100;
                     nand_config->_f.timing.async.tWHR  = 80;
                     nand_config->_f.timing.async.tWW   = 100;
                     nand_config->_f.timing.async.tRR   = 20;
@@ -753,7 +753,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tWC   = 20;
                     nand_config->_f.timing.async.tDS   = 7;
                     nand_config->_f.timing.async.tDH   = 5;
-                                                       
+
                     nand_config->_f.timing.async.tCEA  = 25;
                     nand_config->_f.timing.async.tREA  = 16;
                     nand_config->_f.timing.async.tRP   = 10;
@@ -847,7 +847,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tWW   = 100;   // ns
                     nand_config->_f.timing.async.tRR   = 20;    // ns
                     nand_config->_f.timing.async.tFEAT = 1000;  // ns
-                    
+
                     nand_config->_f.timing.async.tCS  = 20;     // ns
                     nand_config->_f.timing.async.tCH  = 5;      // ns
                     nand_config->_f.timing.async.tCLS = 6;      // ns
@@ -859,7 +859,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tWC  = 16;     // ns
                     nand_config->_f.timing.async.tDS  = 6;      // ns
                     nand_config->_f.timing.async.tDH  = 2;      // ns
-                    
+
                     nand_config->_f.timing.async.tCEA = 10+16;  // ns
                     nand_config->_f.timing.async.tREA = 16;     // ns
                     nand_config->_f.timing.async.tRP  = 8;      // ns
@@ -867,14 +867,14 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tRC  = 16;     // ns
                     nand_config->_f.timing.async.tCOH = 15;     // ns
 #else
-                    nand_config->_f.timing.async.tClk  = __MHZ(50); 
-                    nand_config->_f.timing.async.tRWC  = 20; 
-                    nand_config->_f.timing.async.tR    = 100000; 
-                    nand_config->_f.timing.async.tWB   = 100; 
+                    nand_config->_f.timing.async.tClk  = __MHZ(50);
+                    nand_config->_f.timing.async.tRWC  = 20;
+                    nand_config->_f.timing.async.tR    = 100000;
+                    nand_config->_f.timing.async.tWB   = 100;
                     nand_config->_f.timing.async.tCCS  = 200;
-                    nand_config->_f.timing.async.tADL  = 400; 
-                    nand_config->_f.timing.async.tRHW  = 100; 
-                    nand_config->_f.timing.async.tWHR  = 80; 
+                    nand_config->_f.timing.async.tADL  = 400;
+                    nand_config->_f.timing.async.tRHW  = 100;
+                    nand_config->_f.timing.async.tWHR  = 80;
                     nand_config->_f.timing.async.tWW   = 100;
                     nand_config->_f.timing.async.tRR   = 20;
                     nand_config->_f.timing.async.tFEAT = 1000;
@@ -890,7 +890,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tWC   = 20;
                     nand_config->_f.timing.async.tDS   = 7;
                     nand_config->_f.timing.async.tDH   = 5;
-                                                       
+
                     nand_config->_f.timing.async.tCEA  = 25;
                     nand_config->_f.timing.async.tREA  = 16;
                     nand_config->_f.timing.async.tRP   = 10;
@@ -984,7 +984,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tWW   = 100;   // ns
                     nand_config->_f.timing.async.tRR   = 20;    // ns
                     nand_config->_f.timing.async.tFEAT = 1000;  // ns
-                    
+
                     nand_config->_f.timing.async.tCS  = 20;     // ns
                     nand_config->_f.timing.async.tCH  = 5;      // ns
                     nand_config->_f.timing.async.tCLS = 6;      // ns
@@ -996,7 +996,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tWC  = 16;     // ns
                     nand_config->_f.timing.async.tDS  = 6;      // ns
                     nand_config->_f.timing.async.tDH  = 2;      // ns
-                    
+
                     nand_config->_f.timing.async.tCEA = 10+16;  // ns
                     nand_config->_f.timing.async.tREA = 16;     // ns
                     nand_config->_f.timing.async.tRP  = 8;      // ns
@@ -1004,14 +1004,14 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tRC  = 16;     // ns
                     nand_config->_f.timing.async.tCOH = 15;     // ns
 #else
-                    nand_config->_f.timing.async.tClk  = __MHZ(50); 
-                    nand_config->_f.timing.async.tRWC  = 20; 
-                    nand_config->_f.timing.async.tR    = 100000; 
-                    nand_config->_f.timing.async.tWB   = 100; 
+                    nand_config->_f.timing.async.tClk  = __MHZ(50);
+                    nand_config->_f.timing.async.tRWC  = 20;
+                    nand_config->_f.timing.async.tR    = 100000;
+                    nand_config->_f.timing.async.tWB   = 100;
                     nand_config->_f.timing.async.tCCS  = 200;
-                    nand_config->_f.timing.async.tADL  = 400; 
-                    nand_config->_f.timing.async.tRHW  = 100; 
-                    nand_config->_f.timing.async.tWHR  = 80; 
+                    nand_config->_f.timing.async.tADL  = 400;
+                    nand_config->_f.timing.async.tRHW  = 100;
+                    nand_config->_f.timing.async.tWHR  = 80;
                     nand_config->_f.timing.async.tWW   = 100;
                     nand_config->_f.timing.async.tRR   = 20;
                     nand_config->_f.timing.async.tFEAT = 1000;
@@ -1027,7 +1027,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tWC   = 20;
                     nand_config->_f.timing.async.tDS   = 7;
                     nand_config->_f.timing.async.tDH   = 5;
-                                                       
+
                     nand_config->_f.timing.async.tCEA  = 25;
                     nand_config->_f.timing.async.tREA  = 16;
                     nand_config->_f.timing.async.tRP   = 10;
@@ -1121,7 +1121,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tWW   = 100;   // ns
                     nand_config->_f.timing.async.tRR   = 20;    // ns
                     nand_config->_f.timing.async.tFEAT = 1000;  // ns
-                    
+
                     nand_config->_f.timing.async.tCS  = 20;     // ns
                     nand_config->_f.timing.async.tCH  = 5;      // ns
                     nand_config->_f.timing.async.tCLS = 6;      // ns
@@ -1133,7 +1133,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tWC  = 16;     // ns
                     nand_config->_f.timing.async.tDS  = 6;      // ns
                     nand_config->_f.timing.async.tDH  = 2;      // ns
-                    
+
                     nand_config->_f.timing.async.tCEA = 10+16;  // ns
                     nand_config->_f.timing.async.tREA = 16;     // ns
                     nand_config->_f.timing.async.tRP  = 8;      // ns
@@ -1141,14 +1141,14 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tRC  = 16;     // ns
                     nand_config->_f.timing.async.tCOH = 15;     // ns
 #else
-                    nand_config->_f.timing.async.tClk  = __MHZ(50); 
-                    nand_config->_f.timing.async.tRWC  = 20; 
-                    nand_config->_f.timing.async.tR    = 100000; 
-                    nand_config->_f.timing.async.tWB   = 100; 
+                    nand_config->_f.timing.async.tClk  = __MHZ(50);
+                    nand_config->_f.timing.async.tRWC  = 20;
+                    nand_config->_f.timing.async.tR    = 100000;
+                    nand_config->_f.timing.async.tWB   = 100;
                     nand_config->_f.timing.async.tCCS  = 200;
-                    nand_config->_f.timing.async.tADL  = 400; 
-                    nand_config->_f.timing.async.tRHW  = 100; 
-                    nand_config->_f.timing.async.tWHR  = 80; 
+                    nand_config->_f.timing.async.tADL  = 400;
+                    nand_config->_f.timing.async.tRHW  = 100;
+                    nand_config->_f.timing.async.tWHR  = 80;
                     nand_config->_f.timing.async.tWW   = 100;
                     nand_config->_f.timing.async.tRR   = 20;
                     nand_config->_f.timing.async.tFEAT = 1000;
@@ -1164,7 +1164,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                     nand_config->_f.timing.async.tWC   = 20;
                     nand_config->_f.timing.async.tDS   = 7;
                     nand_config->_f.timing.async.tDH   = 5;
-                                                       
+
                     nand_config->_f.timing.async.tCEA  = 25;
                     nand_config->_f.timing.async.tREA  = 16;
                     nand_config->_f.timing.async.tRP   = 10;
@@ -1227,7 +1227,7 @@ unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, 
                 bytes_per_page = 16384;
 
             } break;
-            
+
         }
     }
 
@@ -1489,89 +1489,89 @@ unsigned int NFC_PHY_ScanFeature(unsigned int _scan_format)
 
     if (Exchange.debug.ftl.configurations && bytes_per_page)
     {
-        Exchange.std.__print("EWS.NFC: Scan Configurations: Done\n");
+        Exchange.sys.fn.print("EWS.NFC: Scan Configurations: Done\n");
 
-        Exchange.std.__print("\n");
-        Exchange.std.__print("*******************************************************************************\n");
-        Exchange.std.__print("* NAND Configuration Summary\n");
-        Exchange.std.__print("*\n");
-        Exchange.std.__print("* - Manufacturer : %s\n", nand_config->_f.manufacturer);
-        Exchange.std.__print("* - Model Name : %s\n", nand_config->_f.modelname);
-        Exchange.std.__print("* - Generation : %s\n", nand_config->_f.generation);
+        Exchange.sys.fn.print("\n");
+        Exchange.sys.fn.print("*******************************************************************************\n");
+        Exchange.sys.fn.print("* NAND Configuration Summary\n");
+        Exchange.sys.fn.print("*\n");
+        Exchange.sys.fn.print("* - Manufacturer : %s\n", nand_config->_f.manufacturer);
+        Exchange.sys.fn.print("* - Model Name : %s\n", nand_config->_f.modelname);
+        Exchange.sys.fn.print("* - Generation : %s\n", nand_config->_f.generation);
 
-        Exchange.std.__print("*\n");
-        Exchange.std.__print("* - Interfacetype : %d\n", nand_config->_f.interfacetype);
-        Exchange.std.__print("* - ONFI Detected : %d\n", nand_config->_f.onfi_detected);
-        Exchange.std.__print("* - ONFI Timing Mode : %d\n", nand_config->_f.onfi_timing_mode);
+        Exchange.sys.fn.print("*\n");
+        Exchange.sys.fn.print("* - Interfacetype : %d\n", nand_config->_f.interfacetype);
+        Exchange.sys.fn.print("* - ONFI Detected : %d\n", nand_config->_f.onfi_detected);
+        Exchange.sys.fn.print("* - ONFI Timing Mode : %d\n", nand_config->_f.onfi_timing_mode);
 
-        Exchange.std.__print("*\n");
-        Exchange.std.__print("* - tClk : %d\n", nand_config->_f.timing.async.tClk);
-        Exchange.std.__print("* - tRWC : %d\n", nand_config->_f.timing.async.tRWC);
-        Exchange.std.__print("* - tR : %d\n", nand_config->_f.timing.async.tR);
-        Exchange.std.__print("* - tWB : %d\n", nand_config->_f.timing.async.tWB);
-        Exchange.std.__print("* - tCCS : %d\n", nand_config->_f.timing.async.tCCS);
-        Exchange.std.__print("* - tADL : %d\n", nand_config->_f.timing.async.tADL);
-        Exchange.std.__print("* - tRHW : %d\n", nand_config->_f.timing.async.tRHW);
-        Exchange.std.__print("* - tWHR : %d\n", nand_config->_f.timing.async.tWHR);
-        Exchange.std.__print("* - tWW : %d\n", nand_config->_f.timing.async.tWW);
-        Exchange.std.__print("* - tRR : %d\n", nand_config->_f.timing.async.tRR);
-        Exchange.std.__print("* - tFEAT : %d\n", nand_config->_f.timing.async.tFEAT);
+        Exchange.sys.fn.print("*\n");
+        Exchange.sys.fn.print("* - tClk : %d\n", nand_config->_f.timing.async.tClk);
+        Exchange.sys.fn.print("* - tRWC : %d\n", nand_config->_f.timing.async.tRWC);
+        Exchange.sys.fn.print("* - tR : %d\n", nand_config->_f.timing.async.tR);
+        Exchange.sys.fn.print("* - tWB : %d\n", nand_config->_f.timing.async.tWB);
+        Exchange.sys.fn.print("* - tCCS : %d\n", nand_config->_f.timing.async.tCCS);
+        Exchange.sys.fn.print("* - tADL : %d\n", nand_config->_f.timing.async.tADL);
+        Exchange.sys.fn.print("* - tRHW : %d\n", nand_config->_f.timing.async.tRHW);
+        Exchange.sys.fn.print("* - tWHR : %d\n", nand_config->_f.timing.async.tWHR);
+        Exchange.sys.fn.print("* - tWW : %d\n", nand_config->_f.timing.async.tWW);
+        Exchange.sys.fn.print("* - tRR : %d\n", nand_config->_f.timing.async.tRR);
+        Exchange.sys.fn.print("* - tFEAT : %d\n", nand_config->_f.timing.async.tFEAT);
 
-        Exchange.std.__print("*\n");
-        Exchange.std.__print("* - tCS : %d\n", nand_config->_f.timing.async.tCS);
-        Exchange.std.__print("* - tCH : %d\n", nand_config->_f.timing.async.tCH);
-        Exchange.std.__print("* - tCLS : %d\n", nand_config->_f.timing.async.tCLS);
-        Exchange.std.__print("* - tALS : %d\n", nand_config->_f.timing.async.tALS);
-        Exchange.std.__print("* - tCLH : %d\n", nand_config->_f.timing.async.tCLH);
-        Exchange.std.__print("* - tALH : %d\n", nand_config->_f.timing.async.tALH);
-        Exchange.std.__print("* - tWP : %d\n", nand_config->_f.timing.async.tWP);
-        Exchange.std.__print("* - tWH : %d\n", nand_config->_f.timing.async.tWH);
-        Exchange.std.__print("* - tWC : %d\n", nand_config->_f.timing.async.tWC);
-        Exchange.std.__print("* - tDS : %d\n", nand_config->_f.timing.async.tDS);
-        Exchange.std.__print("* - tDH : %d\n", nand_config->_f.timing.async.tDH);
-        Exchange.std.__print("* - tCEA : %d\n", nand_config->_f.timing.async.tCEA);
-        Exchange.std.__print("* - tREA : %d\n", nand_config->_f.timing.async.tREA);
-        Exchange.std.__print("* - tRP : %d\n", nand_config->_f.timing.async.tRP);
-        Exchange.std.__print("* - tREH : %d\n", nand_config->_f.timing.async.tREH);
-        Exchange.std.__print("* - tRC : %d\n", nand_config->_f.timing.async.tRC);
-        Exchange.std.__print("* - tCOH : %d\n", nand_config->_f.timing.async.tCOH);
+        Exchange.sys.fn.print("*\n");
+        Exchange.sys.fn.print("* - tCS : %d\n", nand_config->_f.timing.async.tCS);
+        Exchange.sys.fn.print("* - tCH : %d\n", nand_config->_f.timing.async.tCH);
+        Exchange.sys.fn.print("* - tCLS : %d\n", nand_config->_f.timing.async.tCLS);
+        Exchange.sys.fn.print("* - tALS : %d\n", nand_config->_f.timing.async.tALS);
+        Exchange.sys.fn.print("* - tCLH : %d\n", nand_config->_f.timing.async.tCLH);
+        Exchange.sys.fn.print("* - tALH : %d\n", nand_config->_f.timing.async.tALH);
+        Exchange.sys.fn.print("* - tWP : %d\n", nand_config->_f.timing.async.tWP);
+        Exchange.sys.fn.print("* - tWH : %d\n", nand_config->_f.timing.async.tWH);
+        Exchange.sys.fn.print("* - tWC : %d\n", nand_config->_f.timing.async.tWC);
+        Exchange.sys.fn.print("* - tDS : %d\n", nand_config->_f.timing.async.tDS);
+        Exchange.sys.fn.print("* - tDH : %d\n", nand_config->_f.timing.async.tDH);
+        Exchange.sys.fn.print("* - tCEA : %d\n", nand_config->_f.timing.async.tCEA);
+        Exchange.sys.fn.print("* - tREA : %d\n", nand_config->_f.timing.async.tREA);
+        Exchange.sys.fn.print("* - tRP : %d\n", nand_config->_f.timing.async.tRP);
+        Exchange.sys.fn.print("* - tREH : %d\n", nand_config->_f.timing.async.tREH);
+        Exchange.sys.fn.print("* - tRC : %d\n", nand_config->_f.timing.async.tRC);
+        Exchange.sys.fn.print("* - tCOH : %d\n", nand_config->_f.timing.async.tCOH);
 
-        Exchange.std.__print("*\n");
-        Exchange.std.__print("* - Luns Per Ce : %d\n", nand_config->_f.luns_per_ce);
-        Exchange.std.__print("* - Databytes Per Page : %d\n", nand_config->_f.databytes_per_page);
-        Exchange.std.__print("* - Sparebytes Per Page : %d\n", nand_config->_f.sparebytes_per_page);
-        Exchange.std.__print("* - Number Of Planes : %d\n", nand_config->_f.number_of_planes);
-        Exchange.std.__print("* - Pages Per Block : %d\n", nand_config->_f.pages_per_block);
-        Exchange.std.__print("* - Mainblocks Per Lun : %d\n", nand_config->_f.mainblocks_per_lun);
-        Exchange.std.__print("* - Extendedblocks Per Lun : %d\n", nand_config->_f.extendedblocks_per_lun);
-        Exchange.std.__print("* - Next Lun Address : %d\n", nand_config->_f.next_lun_address);
-        Exchange.std.__print("* - Over Provisioning : %d\n", nand_config->_f.over_provisioning);
-        Exchange.std.__print("* - Bits Per Cell : %d\n", nand_config->_f.bits_per_cell);
-        Exchange.std.__print("* - Number Of Bits Ecc Correctability : %d\n", nand_config->_f.number_of_bits_ecc_correctability);
-        Exchange.std.__print("* - Maindatabytes Per Eccunit : %d\n", nand_config->_f.maindatabytes_per_eccunit);
-        Exchange.std.__print("* - Eccbits Per Maindata : %d\n", nand_config->_f.eccbits_per_maindata);
-        Exchange.std.__print("* - Eccbits Per Blockinformation : %d\n", nand_config->_f.eccbits_per_blockinformation);
-        Exchange.std.__print("* - Block Endurance : %d\n", nand_config->_f.block_endurance);
-        Exchange.std.__print("* - Factorybadblocks Per Nand : %d\n", nand_config->_f.factorybadblocks_per_nand);
+        Exchange.sys.fn.print("*\n");
+        Exchange.sys.fn.print("* - Luns Per Ce : %d\n", nand_config->_f.luns_per_ce);
+        Exchange.sys.fn.print("* - Databytes Per Page : %d\n", nand_config->_f.databytes_per_page);
+        Exchange.sys.fn.print("* - Sparebytes Per Page : %d\n", nand_config->_f.sparebytes_per_page);
+        Exchange.sys.fn.print("* - Number Of Planes : %d\n", nand_config->_f.number_of_planes);
+        Exchange.sys.fn.print("* - Pages Per Block : %d\n", nand_config->_f.pages_per_block);
+        Exchange.sys.fn.print("* - Mainblocks Per Lun : %d\n", nand_config->_f.mainblocks_per_lun);
+        Exchange.sys.fn.print("* - Extendedblocks Per Lun : %d\n", nand_config->_f.extendedblocks_per_lun);
+        Exchange.sys.fn.print("* - Next Lun Address : %d\n", nand_config->_f.next_lun_address);
+        Exchange.sys.fn.print("* - Over Provisioning : %d\n", nand_config->_f.over_provisioning);
+        Exchange.sys.fn.print("* - Bits Per Cell : %d\n", nand_config->_f.bits_per_cell);
+        Exchange.sys.fn.print("* - Number Of Bits Ecc Correctability : %d\n", nand_config->_f.number_of_bits_ecc_correctability);
+        Exchange.sys.fn.print("* - Maindatabytes Per Eccunit : %d\n", nand_config->_f.maindatabytes_per_eccunit);
+        Exchange.sys.fn.print("* - Eccbits Per Maindata : %d\n", nand_config->_f.eccbits_per_maindata);
+        Exchange.sys.fn.print("* - Eccbits Per Blockinformation : %d\n", nand_config->_f.eccbits_per_blockinformation);
+        Exchange.sys.fn.print("* - Block Endurance : %d\n", nand_config->_f.block_endurance);
+        Exchange.sys.fn.print("* - Factorybadblocks Per Nand : %d\n", nand_config->_f.factorybadblocks_per_nand);
 
-        Exchange.std.__print("*\n");
-        Exchange.std.__print("* - Randomize : %d\n", nand_config->_f.support_list.randomize);
+        Exchange.sys.fn.print("*\n");
+        Exchange.sys.fn.print("* - Randomize : %d\n", nand_config->_f.support_list.randomize);
 
-        Exchange.std.__print("*\n");
-        Exchange.std.__print("* - Multiplane Read %d\n", nand_config->_f.support_type.multiplane_read);
-        Exchange.std.__print("* - Multiplane Write %d\n", nand_config->_f.support_type.multiplane_write);
-        Exchange.std.__print("* - Cache Read %d\n", nand_config->_f.support_type.cache_read);
-        Exchange.std.__print("* - Cache Write %d\n", nand_config->_f.support_type.cache_write);
-        Exchange.std.__print("* - Interleave %d\n", nand_config->_f.support_type.interleave);
-        Exchange.std.__print("* - Paired Page Mapping %d\n", nand_config->_f.support_type.paired_page_mapping);
-        Exchange.std.__print("* - Block Indicator %d\n", nand_config->_f.support_type.block_indicator);
-        Exchange.std.__print("* - Paired Plane %d\n", nand_config->_f.support_type.paired_plane);
-        Exchange.std.__print("* - Multiplane Erase %d\n", nand_config->_f.support_type.multiplane_erase);
-        Exchange.std.__print("* - Read Retry %d\n", nand_config->_f.support_type.read_retry);
-        Exchange.std.__print("*\n");
+        Exchange.sys.fn.print("*\n");
+        Exchange.sys.fn.print("* - Multiplane Read %d\n", nand_config->_f.support_type.multiplane_read);
+        Exchange.sys.fn.print("* - Multiplane Write %d\n", nand_config->_f.support_type.multiplane_write);
+        Exchange.sys.fn.print("* - Cache Read %d\n", nand_config->_f.support_type.cache_read);
+        Exchange.sys.fn.print("* - Cache Write %d\n", nand_config->_f.support_type.cache_write);
+        Exchange.sys.fn.print("* - Interleave %d\n", nand_config->_f.support_type.interleave);
+        Exchange.sys.fn.print("* - Paired Page Mapping %d\n", nand_config->_f.support_type.paired_page_mapping);
+        Exchange.sys.fn.print("* - Block Indicator %d\n", nand_config->_f.support_type.block_indicator);
+        Exchange.sys.fn.print("* - Paired Plane %d\n", nand_config->_f.support_type.paired_plane);
+        Exchange.sys.fn.print("* - Multiplane Erase %d\n", nand_config->_f.support_type.multiplane_erase);
+        Exchange.sys.fn.print("* - Read Retry %d\n", nand_config->_f.support_type.read_retry);
+        Exchange.sys.fn.print("*\n");
 
-        Exchange.std.__print("*******************************************************************************\n");
-        Exchange.std.__print("\n");
+        Exchange.sys.fn.print("*******************************************************************************\n");
+        Exchange.sys.fn.print("\n");
     }
 
     return bytes_per_page;

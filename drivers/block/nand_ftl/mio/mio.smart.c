@@ -365,7 +365,7 @@ int miosmart_load(void)
             continue;
         }
 
-        crc32 = Exchange.std.__get_crc32(0, (void *)(io_data), (io_data->this_size - 4));
+        crc32 = Exchange.sys.fn.get_crc32(0, (void *)(io_data), (io_data->this_size - 4));
         if (io_data->crc32 != crc32)
         {
             DBG_MIOSMART(KERN_WARNING "miosmart_load: io_data - io_data->crc32:%08x crc32:%08x", io_data->crc32, crc32);
@@ -385,7 +385,7 @@ int miosmart_load(void)
                     continue;
                 }
 
-                crc32 = Exchange.std.__get_crc32(0, (void *)nand_data, (nand_data->this_size - 4));
+                crc32 = Exchange.sys.fn.get_crc32(0, (void *)nand_data, (nand_data->this_size - 4));
 
                 if (nand_data->crc32 != crc32)
                 {
@@ -436,7 +436,7 @@ int miosmart_save(void)
 
         // io_accumulate
         io_data = (MIO_SMART_COMMON_DATA *)&MioSmartInfo.io_accumulate;
-        io_data->crc32 = Exchange.std.__get_crc32(0, (void *)io_data, (io_data->this_size - 4));
+        io_data->crc32 = Exchange.sys.fn.get_crc32(0, (void *)io_data, (io_data->this_size - 4));
         memcpy(dest_buff, (void *)io_data, io_data->this_size);
         dest_buff += io_data->this_size;
 
@@ -446,7 +446,7 @@ int miosmart_save(void)
             for (channel = 0; channel < MioSmartInfo.max_channels; channel++)
             {
                 nand_data = (MIO_SMART_CE_DATA *)&MioSmartInfo.nand_accumulate[way][channel];
-                nand_data->crc32 = Exchange.std.__get_crc32(0, (void *)nand_data, (nand_data->this_size - 4));
+                nand_data->crc32 = Exchange.sys.fn.get_crc32(0, (void *)nand_data, (nand_data->this_size - 4));
                 memcpy(dest_buff, (void *)nand_data, nand_data->this_size);
                 dest_buff += nand_data->this_size;
             }
@@ -480,7 +480,7 @@ int miosmart_save(void)
         // io_accumulate
         dest_buff = (void *)mioadmin.rwbuff;
         io_data = (MIO_SMART_COMMON_DATA *)dest_buff;
-        crc32 = Exchange.std.__get_crc32(0, (void *)io_data, (io_data->this_size - 4));
+        crc32 = Exchange.sys.fn.get_crc32(0, (void *)io_data, (io_data->this_size - 4));
 
         if (io_data->crc32 != crc32)
         {
@@ -495,7 +495,7 @@ int miosmart_save(void)
             for (channel = 0; channel < MioSmartInfo.max_channels; channel++)
             {
                 nand_data = (MIO_SMART_CE_DATA *)dest_buff;
-                crc32 = Exchange.std.__get_crc32(0, (void *)nand_data, (nand_data->this_size - 4));
+                crc32 = Exchange.sys.fn.get_crc32(0, (void *)nand_data, (nand_data->this_size - 4));
                 if (nand_data->crc32 != crc32)
                 {
                     DBG_MIOSMART(KERN_WARNING "miosmart_save: nand_data->crc32:%08x crc:%08x\n", nand_data->crc32, crc32);
