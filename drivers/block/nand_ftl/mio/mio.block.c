@@ -66,8 +66,6 @@ unsigned long nxp_ftl_start_block = CFG_NAND_FTL_START_BLOCK;
  ******************************************************************************/
 static int mio_bdev_open(struct block_device * _bdev, fmode_t _mode)
 {
-    DBG_BLK(KERN_INFO "mio.block: device open: inode is %d\n", iminor(_bdev->bd_inode));
-
     if (iminor(_bdev->bd_inode) > MIO_MINOR_CNT)
     {
         return -ENODEV;
@@ -78,13 +76,11 @@ static int mio_bdev_open(struct block_device * _bdev, fmode_t _mode)
 
 static int mio_bdev_close(struct gendisk * disk, fmode_t _mode)
 {
-    DBG_BLK(KERN_INFO "mio.block: device close: \n");
     return 0;
 }
 
 static int mio_bdev_ioctl(struct block_device * _bdev, fmode_t _mode, unsigned int _cmd, unsigned long _arg)
 {
-    DBG_BLK(KERN_INFO "mio.block: device ioctl: \n");
     return 0;
 }
 
@@ -101,7 +97,7 @@ static int mio_background_thread(void * _arg)
 {
     struct mio_state * io_state = mio_dev.io_state;
 
-    DBG_BLK(KERN_INFO "mio.block: mio_background_thread: start\n");
+    if (Exchange.debug.misc.block_thread) { Exchange.sys.fn.print("MIO.BLOCK: mio_background_thread() Start\n"); }
 
     while (!kthread_should_stop())
     {
@@ -138,7 +134,7 @@ static int mio_background_thread(void * _arg)
             {
                 // Clear Trigger
                 io_state->transaction.trigger.e.written_flush = 0;
-
+            
                 // Set Background Jobs
                 io_state->background.t.flush = MIO_TIME_DIFF_MAX(get_jiffies_64());
                 io_state->background.e.flush = 1;
@@ -174,7 +170,7 @@ static int mio_background_thread(void * _arg)
         }
     }
 
-    DBG_BLK(KERN_INFO "mio.block: mio_background_thread: end\n");
+    if (Exchange.debug.misc.block_thread) { Exchange.sys.fn.print("MIO.BLOCK: mio_background_thread() Stop\n"); }
 
     return 0;
 }
@@ -208,40 +204,28 @@ void mio_background(struct mio_state * _io_state)
     if (io_state->background.e.flush)
     {
         io_state->background.e.flush = 0;
-
-        if (Exchange.debug.misc.block_background)
-        {
-            __PRINT("Block : Background flush\n");
-        }
-
         media_flush(io_state);
         while (!media_is_idle(io_state));
+
+        if (Exchange.debug.misc.block_background) { Exchange.sys.fn.print("MIO.BLOCK: Background flush\n"); }
     }
 
     if (io_state->background.e.standby)
     {
         io_state->background.e.standby = 0;
-
-        if (Exchange.debug.misc.block_background)
-        {
-            __PRINT("Block : Background standby\n");
-        }
-
         media_standby(io_state);
         while (!media_is_idle(io_state));
+
+        if (Exchange.debug.misc.block_background) { Exchange.sys.fn.print("MIO.BLOCK: Background standby\n"); }
     }
 
     if (io_state->background.e.bgjobs)
     {
         io_state->background.e.bgjobs = 0;
-    
-        if (Exchange.debug.misc.block_background)
-        {
-            __PRINT("Block : Background bgjobs\n");
-        }
-
         media_background(io_state);
         while (!media_is_idle(io_state));
+
+        if (Exchange.debug.misc.block_background) { Exchange.sys.fn.print("MIO.BLOCK: Background bgjobs\n"); }
     }
 }
 
@@ -341,7 +325,7 @@ static int mio_transaction(struct request * _req, struct mio_state * _io_state)
         io_state->transaction.trigger.e.written_bgjobs = 1;
     }
 
-    if (Exchange.debug.misc.block)
+    if (Exchange.debug.misc.block_transaction)
     {
         unsigned int _req_bcnt = req_seccnt << 9;
         unsigned int _i = 0;
@@ -351,24 +335,24 @@ static int mio_transaction(struct request * _req, struct mio_state * _io_state)
         {
             for (_i = 0; _i < _req_bcnt; _i += 512)
             {
-                __PRINT("Block : Write(%xh,1) .. ", (unsigned int)(req_lba+(_i>>9)));
+                Exchange.sys.fn.print("MIO.BLOCK: Write(%xh,1) .. ", (unsigned int)(req_lba+(_i>>9)));
 
                 for (_j = 0; _j < 16; _j++)
                 {
-                    __PRINT("%02x ", req_buffer[_i+_j]);
-                }   __PRINT(" ... \n");
+                    Exchange.sys.fn.print("%02x ", req_buffer[_i+_j]);
+                }   Exchange.sys.fn.print(" ... \n");
             }
         }
         else
         {
             for (_i = 0; _i < _req_bcnt; _i += 512)
             {
-                __PRINT("Block :  Read(%xh,1) .. ", (unsigned int)(req_lba+(_i>>9)));
+                Exchange.sys.fn.print("MIO.BLOCK:  Read(%xh,1) .. ", (unsigned int)(req_lba+(_i>>9)));
 
                 for (_j = 0; _j < 16; _j++)
                 {
-                    __PRINT("%02x ", req_buffer[_i+_j]);
-                }   __PRINT(" ... \n");
+                    Exchange.sys.fn.print("%02x ", req_buffer[_i+_j]);
+                }   Exchange.sys.fn.print(" ... \n");
             }
         }
     }
@@ -385,7 +369,7 @@ static int mio_transaction_thread(void * _arg)
     struct request_queue * rq = io_state->transaction.rq;
     struct request * req = NULL;
 
-    DBG_BLK(KERN_INFO "mio.block: mio_transaction_thread: start\n");
+    if (Exchange.debug.misc.block_thread) { Exchange.sys.fn.print("MIO.BLOCK: mio_transaction_thread() Start\n"); }
 
     spin_lock_irq(rq->queue_lock);
 
@@ -439,7 +423,7 @@ static int mio_transaction_thread(void * _arg)
             if (io_state->transaction.wake.cnt) { io_state->transaction.wake.cnt -= 1; }
             io_state->transaction.wake.time = MIO_TIME_DIFF_MAX(get_jiffies_64());
 
-          //if (Exchange.sys.fn.IndicatorReqIdle) { Exchange.sys.fn.IndicatorReqIdle(); }
+            if (Exchange.sys.fn.LedReqIdle) { Exchange.sys.fn.LedReqIdle(); }
         }
         spin_lock_irq(rq->queue_lock);
         io_state->transaction.status = MIO_IDLE;
@@ -457,7 +441,7 @@ static int mio_transaction_thread(void * _arg)
 
     spin_unlock_irq(rq->queue_lock);
 
-    DBG_BLK(KERN_INFO "mio.block: mio_transaction_thread: end\n");
+    if (Exchange.debug.misc.block_thread) { Exchange.sys.fn.print("MIO.BLOCK: mio_transaction_thread() Stop\n"); }
 
     return 0;
 }
@@ -469,11 +453,11 @@ static void mio_request_fetch(struct request_queue * _q)
 {
     struct mio_state * io_state = _q->queuedata;
 
+    if (Exchange.sys.fn.LedReqBusy) { Exchange.sys.fn.LedReqBusy(); }
+
     // Wake Up Thread
-  //if (Exchange.sys.fn.IndicatorReqBusy) { Exchange.sys.fn.IndicatorReqBusy(); }
     io_state->transaction.wake.cnt += 1;
     io_state->transaction.wake.time = get_jiffies_64() + MIO_TIME_MSEC(1);
-
     wake_up_process(io_state->transaction.thread);
 }
 
@@ -482,10 +466,10 @@ static void mio_request_fetch(struct request_queue * _q)
  ******************************************************************************/
 static int __init mio_init(void)
 {
-    printk(KERN_INFO "mio.block:\n");
-    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
-    printk(KERN_INFO "mio.block:  Module Init Start\n");
-    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "MIO.BLOCK:\n");
+    printk(KERN_INFO "MIO.BLOCK: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "MIO.BLOCK:  Init Begin\n");
+    printk(KERN_INFO "MIO.BLOCK: --------------------------------------------------------------------------\n");
 
     mio_dev.miosys = &miosys;
     mio_dev.mutex = &mio_mutex;
@@ -496,10 +480,10 @@ static int __init mio_init(void)
      **************************************************************************/
     if ((mio_dev.capacity = media_open()) < 0)
     {
-        int ret = mio_dev.capacity;
+        printk(KERN_ERR "MIO.BLOCK: media_open() Fail\n");
         mio_dev.capacity = 0;
 
-        return ret;
+        return -1;
     }
 
     /**************************************************************************
@@ -507,7 +491,7 @@ static int __init mio_init(void)
      **************************************************************************/
     if (miosmart_init(*Exchange.ftl.Channel, *Exchange.ftl.Way) < 0)
     {
-        DBG_MEDIA(KERN_INFO "media_open: miosmart_init(): fail\n");
+        printk(KERN_ERR "MIO.BLOCK: miosmart_init() Fail\n");
         return -1;
     }
     miosmart_load();
@@ -522,7 +506,7 @@ static int __init mio_init(void)
          **********************************************************************/
         if ((mio_major = register_blkdev(mio_major, "mio")) <= 0)
         {
-            printk(KERN_ERR "mio.block: unable to get major number\n");
+            printk(KERN_ERR "MIO.BLOCK: register_blkdev() Fail\n");
             media_close();
 
             return -ENODEV;
@@ -559,7 +543,7 @@ static int __init mio_init(void)
          **********************************************************************/
         if (NULL == (mio_dev.io_state->transaction.rq = blk_init_queue(mio_request_fetch, &mio_dev.io_state->transaction.queue_lock)))
         {
-            printk(KERN_ERR "mio.block: blk_init_queue failure\n");
+            printk(KERN_ERR "MIO.BLOCK: blk_init_queue() Fail\n");
             unregister_blkdev(mio_major, "mio");
             media_close();
 
@@ -656,7 +640,7 @@ static int __init mio_init(void)
          **********************************************************************/
         if (!(mio_dev.disk = alloc_disk(MIO_MINOR_CNT)))
         {
-            printk(KERN_ERR "mio.block: alloc_disk failure\n");
+            printk(KERN_ERR "MIO.BLOCK: alloc_disk() Fail\n");
             blk_cleanup_queue(mio_dev.io_state->transaction.rq);
             unregister_blkdev(mio_major, "mio");
             media_close();
@@ -686,17 +670,17 @@ static int __init mio_init(void)
      **************************************************************************/
     if (misc_register(mio_dev.miosys))
     {
-        printk(KERN_ERR "mio.block: misc_register failure\n");
+        printk(KERN_ERR "MIO.BLOCK: misc_register() Fail\n");
         return -ENODEV;
     }
 
     /**************************************************************************
      * Now the disk is "live"
      **************************************************************************/
-    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
-    printk(KERN_INFO "mio.block:  Module Init Done: Capacity %xh(%d) Sectors = %d MB: \n", mio_dev.capacity, mio_dev.capacity, ((mio_dev.capacity>>10)<<9)>>10);
-    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
-    printk(KERN_INFO "mio.block:\n");
+    printk(KERN_INFO "MIO.BLOCK: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "MIO.BLOCK:  Init End: Capacity %xh(%d) Sectors = %d MB\n", mio_dev.capacity, mio_dev.capacity, ((mio_dev.capacity>>10)<<9)>>10);
+    printk(KERN_INFO "MIO.BLOCK: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "MIO.BLOCK:\n");
 
     return 0;
 }
@@ -706,10 +690,10 @@ static int __init mio_init(void)
  ******************************************************************************/
 static void __exit mio_exit(void)
 {
-    printk(KERN_INFO "mio.block:\n");
-    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
-    printk(KERN_INFO "mio.block:  Module Exit Start\n");
-    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "MIO.BLOCK:\n");
+    printk(KERN_INFO "MIO.BLOCK: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "MIO.BLOCK:  Exit Begin\n");
+    printk(KERN_INFO "MIO.BLOCK: --------------------------------------------------------------------------\n");
 
     /**************************************************************************
      * Un-Register : /sys/class/misc/miosys
@@ -738,17 +722,16 @@ static void __exit mio_exit(void)
     media_close();
     miosmart_deinit();
 
-    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
-    printk(KERN_INFO "mio.block:  Module Exit Done\n");
-    printk(KERN_INFO "mio.block: --------------------------------------------------------------------------\n");
-    printk(KERN_INFO "mio.block:\n");
+    printk(KERN_INFO "MIO.BLOCK: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "MIO.BLOCK:  Exit End\n");
+    printk(KERN_INFO "MIO.BLOCK: --------------------------------------------------------------------------\n");
+    printk(KERN_INFO "MIO.BLOCK:\n");
 }
 
 /******************************************************************************
  *
  ******************************************************************************/
-//static int nand_suspend(struct platform_device * pdev, pm_message_t state)
-static int nand_suspend(struct device *dev)
+static int nand_suspend(struct device * dev)
 {
     mio_dev.io_state->power.suspending = 1;
 
@@ -763,8 +746,7 @@ static int nand_suspend(struct device *dev)
 /******************************************************************************
  *
  ******************************************************************************/
-//static int nand_resume(struct platform_device *pdev)
-static int nand_resume(struct device *dev)
+static int nand_resume(struct device * dev)
 {
     media_resume();
 
@@ -781,12 +763,10 @@ static SIMPLE_DEV_PM_OPS(nand_pmops, nand_suspend, nand_resume);
 static struct platform_driver nand_driver =
 {
     .driver = {
-    .name   = DEV_NAME_NAND,
-    .pm     = &nand_pmops,
-    .owner  = THIS_MODULE,
+        .name  = DEV_NAME_NAND,
+        .pm    = &nand_pmops,
+        .owner = THIS_MODULE,
     },
-  //.suspend = nand_suspend,
-  //.resume  = nand_resume,
 };
 
 /******************************************************************************
@@ -806,10 +786,12 @@ static void __exit nand_exit(void)
     platform_driver_unregister(&nand_driver);
 }
 
-
+/******************************************************************************
+ *
+ ******************************************************************************/
 module_init(nand_init);
 module_exit(nand_exit);
 MODULE_LICENSE("EWS");
-MODULE_AUTHOR("SD.LEE");
+MODULE_AUTHOR("SD.LEE (mcdu1214@eastwho.com)");
 MODULE_DESCRIPTION("Media I/O Block Driver");
 MODULE_ALIAS_BLOCKDEV_MAJOR(mio_major);

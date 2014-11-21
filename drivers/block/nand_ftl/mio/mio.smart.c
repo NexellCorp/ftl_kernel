@@ -23,9 +23,9 @@
 /******************************************************************************
  *
  ******************************************************************************/
-#define MIOADMIN_PART_USER                    (0)
-#define MIOADMIN_PART_ADMIN1                  (2)
-#define MIOADMIN_PART_ADMIN2                  (3)
+#define MIOADMIN_PART_USER      (0)
+#define MIOADMIN_PART_ADMIN1    (2)
+#define MIOADMIN_PART_ADMIN2    (3)
 
 /******************************************************************************
  * local variable
@@ -42,7 +42,7 @@ static struct
     unsigned int adminmiddle_sectors;
     unsigned int adminhigh_sectors;
 
-    unsigned char *rwbuff;
+    unsigned char * rwbuff;
     unsigned int rwbuff_size;
 
 } mioadmin;
@@ -51,7 +51,7 @@ static struct
 {
     unsigned char is_init;
 
-    NAND *nand;
+    NAND * nand;
 
 } miosmart;
 
@@ -61,7 +61,7 @@ static struct
 static int mioadmin_init(void);
 static void mioadmin_deinit(void);
 static int mioadmin_cmd_to_ftl(unsigned short usCommand, unsigned char ucFeature, unsigned int uiAddress, unsigned int uiLength);
-static int mioadmin_write(unsigned char region, void *buff, unsigned int sectors);
+static int mioadmin_write(unsigned char region, void * buff, unsigned int sectors);
 static int mioadmin_read(unsigned char region, void * buff, unsigned int sectors, unsigned char sequent);
 
 /******************************************************************************
@@ -72,8 +72,8 @@ int miosmart_init(unsigned int _max_channels, unsigned int _max_ways)
     int resp = 0;
     unsigned int max_channels = _max_channels;
     unsigned int max_ways = _max_ways;
-    unsigned int way=0, channel=0;
-    unsigned int size=0;
+    unsigned int way = 0, channel = 0;
+    unsigned int size = 0;
 
     miosmart_deinit();
     miosmart.nand = &phy_features.nand_config;
@@ -104,7 +104,7 @@ int miosmart_init(unsigned int _max_channels, unsigned int _max_ways)
                 memset((void *)(MioSmartInfo.nand_accumulate[way]), 0x00, size);
                 memset((void *)(MioSmartInfo.nand_current[way]), 0x00, size);
 
-                for (channel=0; channel < max_channels; channel++)
+                for (channel = 0; channel < max_channels; channel++)
                 {
                     MioSmartInfo.nand_accumulate[way][channel].this_size = sizeof(MIO_SMART_CE_DATA);
                     MioSmartInfo.nand_current[way][channel].this_size = sizeof(MIO_SMART_CE_DATA);
@@ -112,14 +112,14 @@ int miosmart_init(unsigned int _max_channels, unsigned int _max_ways)
             }
             else
             {
-                printk(KERN_ERR "miosmart_init: memory alloc: fail");
+                printk(KERN_ERR "MIO.SMART.INIT: Memory Allocation Fail (Used For %d WAY)", way);
                 resp = -1;
             }
         }
     }
     else
     {
-        printk(KERN_ERR "miosmart_init: memory alloc: fail");
+        printk(KERN_ERR "MIO.SMART.INIT: Memory Allocation Fail");
         resp = -1;
     }
 
@@ -136,20 +136,21 @@ int miosmart_init(unsigned int _max_channels, unsigned int _max_ways)
 
     if (mioadmin_init() < 0)
     {
-        printk(KERN_ERR "miosmart_init: mioadmin init: fail");
+        printk(KERN_ERR "MIO.SMART.INIT: FTL Admin Init Fail");
         resp = -1;
     }
 
     // check validation
-    if (resp >=0)
+    if (resp >= 0)
     {
         unsigned int required_bytes = 0;
-         
+
         required_bytes = sizeof(MIO_SMART_COMMON_DATA);
         required_bytes += sizeof(MIO_SMART_CE_DATA) * max_channels * max_ways;
+
         if (required_bytes > __SECTOR_SIZEOF(mioadmin.adminhigh_sectors))
         {
-            printk(KERN_ERR "miosmart_init: smart data is too big: fail");
+            printk(KERN_ERR "MIO.SMART.INIT: Not Enough SMART Data Region");
             resp = -1;
         }
     }
@@ -170,7 +171,7 @@ int miosmart_is_init(void)
 void miosmart_deinit(void)
 {
     unsigned int max_ways = MioSmartInfo.max_ways;
-    unsigned int way=0;
+    unsigned int way = 0;
 
     // nand_accumulate
     if (MioSmartInfo.nand_accumulate)
@@ -187,6 +188,7 @@ void miosmart_deinit(void)
                 break;
             }
         }
+
         vfree(MioSmartInfo.nand_accumulate);
         MioSmartInfo.nand_accumulate = 0;
     }
@@ -206,6 +208,7 @@ void miosmart_deinit(void)
                 break;
             }
         }
+
         vfree(MioSmartInfo.nand_current);
         MioSmartInfo.nand_current = 0;
     }
@@ -222,18 +225,17 @@ void miosmart_deinit(void)
     mioadmin_deinit();
 
     miosmart.is_init = 0;
-
 }
 
 int miosmart_update_eccstatus(void)
 {
     int diff_cnt = 0;
     unsigned int current_new = 0;
-    unsigned int *pcurrent = 0;
-    unsigned int *paccumulate = 0;
-    MIO_SMART_CE_DATA *pnand_accumulate = 0;
-    MIO_SMART_CE_DATA *pnand_current = 0;
-    DEVICE_SUMMARY *pdevice_summary = 0;
+    unsigned int * pcurrent = 0;
+    unsigned int * paccumulate = 0;
+    MIO_SMART_CE_DATA * pnand_accumulate = 0;
+    MIO_SMART_CE_DATA * pnand_current = 0;
+    DEVICE_SUMMARY * pdevice_summary = 0;
     unsigned int channel = 0, way = 0;
 
     if (!miosmart_is_init())
@@ -247,9 +249,9 @@ int miosmart_update_eccstatus(void)
     }
 
     // ECC info
-    for (way=0; way < *Exchange.ftl.Way; way++)
+    for (way = 0; way < *Exchange.ftl.Way; way++)
     {
-        for (channel=0; channel < *Exchange.ftl.Channel; channel++)
+        for (channel = 0; channel < *Exchange.ftl.Channel; channel++)
         {
             pnand_accumulate = &(MioSmartInfo.nand_accumulate[way][channel]);
             pnand_current = &(MioSmartInfo.nand_current[way][channel]);
@@ -325,7 +327,6 @@ int miosmart_update_eccstatus(void)
                 *pcurrent = current_new;
                 diff_cnt += 1;
             }
-
         }
     }
 
@@ -340,18 +341,19 @@ int miosmart_load(void)
     unsigned int region_size = mioadmin.adminhigh_sectors;
     unsigned int crc32 = 0;
     unsigned char try_count = 0;
-	unsigned char channel = 0, way = 0;
-    MIO_SMART_COMMON_DATA *io_data;
-    MIO_SMART_CE_DATA     *nand_data;
+    unsigned char channel = 0, way = 0;
+    MIO_SMART_COMMON_DATA * io_data;
+    MIO_SMART_CE_DATA     * nand_data;
 
     if (!miosmart_is_init())
     {
         return -1;
     }
 
-    for (try_count=0; try_count < 2; try_count++)
+    for (try_count = 0; try_count < 2; try_count++)
     {
         memset((void *)mioadmin.rwbuff, 0, mioadmin.rwbuff_size);
+
         if (mioadmin_read(region, (void *)mioadmin.rwbuff, region_size, try_count) < 0)
         {
             continue;
@@ -368,9 +370,10 @@ int miosmart_load(void)
         crc32 = Exchange.sys.fn.get_crc32(0, (void *)(io_data), (io_data->this_size - 4));
         if (io_data->crc32 != crc32)
         {
-            DBG_MIOSMART(KERN_WARNING "miosmart_load: io_data - io_data->crc32:%08x crc32:%08x", io_data->crc32, crc32);
+            DBG_MIOSMART(KERN_WARNING "MIO.SMART.LOAD.IO.DATA: Not Matched Calculated CRC32 (%08x) With Stored CRC32 (%08x)", io_data->crc32, crc32);
             continue;
         }
+
         memcpy((void *)&MioSmartInfo.io_accumulate, (void *)io_data, io_data->this_size);
         src_buff += io_data->this_size;
 
@@ -389,9 +392,10 @@ int miosmart_load(void)
 
                 if (nand_data->crc32 != crc32)
                 {
-                    DBG_MIOSMART(KERN_WARNING "miosmart_load: nand_data - nand_data->crc32:%08x crc32:%08x", nand_data->crc32, crc32);
+                    DBG_MIOSMART(KERN_WARNING "MIO.SMART.LOAD.NAND(%d,%d).DATA: Not Matched Calculated CRC32 (%08x) With Stored CRC32 (%08x)", channel, way, nand_data->crc32, crc32);
                     continue;
                 }
+
                 memcpy((void *)&MioSmartInfo.nand_accumulate[way][channel], (void *)nand_data, nand_data->this_size);
                 src_buff += nand_data->this_size;
             }
@@ -415,9 +419,9 @@ int miosmart_save(void)
     unsigned int region = 1;
     unsigned int region_size = mioadmin.adminhigh_sectors;
     unsigned char try_count = 0;
-	unsigned char channel = 0, way = 0;
-    MIO_SMART_COMMON_DATA *io_data;
-    MIO_SMART_CE_DATA     *nand_data;
+    unsigned char channel = 0, way = 0;
+    MIO_SMART_COMMON_DATA * io_data;
+    MIO_SMART_CE_DATA     * nand_data;
     unsigned int crc32 = 0;
     static unsigned int prev_iodata_crc32 = 0;
     static unsigned int prev_nanddata0c0w_crc32 = 0;
@@ -464,7 +468,9 @@ int miosmart_save(void)
     /**********************************************************************
      * write & verify
      **********************************************************************/
-    for (try_count=0; try_count < 2; try_count++)
+    if (Exchange.debug.misc.smart_store) { Exchange.sys.fn.print("MIO.SMART.STORE: Start"); }
+
+    for (try_count = 0; try_count < 2; try_count++)
     {
         if (mioadmin_write(region, (void *)mioadmin.rwbuff, region_size) < 0)
         {
@@ -484,7 +490,8 @@ int miosmart_save(void)
 
         if (io_data->crc32 != crc32)
         {
-            DBG_MIOSMART(KERN_WARNING "miosmart_save: io_data->crc32:%08x crc:%08x\n", io_data->crc32, crc32);
+            // ??
+            DBG_MIOSMART(KERN_WARNING "MIO.SMART.STORE.IO.DATA: Not Matched Calculated CRC32 (%08x) With Storing CRC32 (%08x)", io_data->crc32, crc32);
             continue;
         }
         dest_buff += io_data->this_size;
@@ -498,9 +505,11 @@ int miosmart_save(void)
                 crc32 = Exchange.sys.fn.get_crc32(0, (void *)nand_data, (nand_data->this_size - 4));
                 if (nand_data->crc32 != crc32)
                 {
-                    DBG_MIOSMART(KERN_WARNING "miosmart_save: nand_data->crc32:%08x crc:%08x\n", nand_data->crc32, crc32);
+                    // ??
+                    DBG_MIOSMART(KERN_WARNING "MIO.SMART.STORE.NAND(%d,%d).DATA: Not Matched Calculated CRC32 (%08x) With Storing CRC32 (%08x)", channel, way, nand_data->crc32, crc32);
                     continue;
                 }
+
                 dest_buff += nand_data->this_size;
             }
         }
@@ -516,13 +525,14 @@ int miosmart_save(void)
 
         prev_iodata_crc32 = MioSmartInfo.io_accumulate.crc32;
         prev_nanddata0c0w_crc32 = MioSmartInfo.nand_accumulate[0][0].crc32;
-
     }
+
+    if (Exchange.debug.misc.smart_store) { Exchange.sys.fn.print("MIO.SMART.STORE: Stop"); }
 
     return resp;
 }
 
-void miosmart_get_erasecount(unsigned int *min, unsigned int *max, unsigned int *sum, unsigned int average[])
+void miosmart_get_erasecount(unsigned int * min, unsigned int * max, unsigned int * sum, unsigned int average[])
 {
     unsigned int sum_erasecount = 0, erasecount = 0, validnum_erasecount = 0;
     unsigned int min_erasecount = 0xFFFFFFFF, max_erasecount = 0;
@@ -534,17 +544,17 @@ void miosmart_get_erasecount(unsigned int *min, unsigned int *max, unsigned int 
   //unsigned char bits_per_cell = miosmart.nand->_f.bits_per_cell;
     unsigned int max_blocks = miosmart.nand->_f.luns_per_ce * miosmart.nand->_f.mainblocks_per_lun;
     unsigned int buff_size = miosmart.nand->_f.luns_per_ce * miosmart.nand->_f.mainblocks_per_lun * sizeof(unsigned int);
-    unsigned int entrydata = 0;    
+    unsigned int entrydata = 0;
     unsigned int *wearlevel_data = 0;
     unsigned char isvalid_erasecount = 0;
 
     wearlevel_data = (unsigned int *)vmalloc(buff_size);
     if (!wearlevel_data)
     {
-        DBG_MIOSMART(KERN_WARNING "miosmart_get_erasecount: memory alloc: fail");
+        DBG_MIOSMART(KERN_WARNING "MIO.SMART.GET.ERASE.COUNT: Memory Allocation Fail");
         return;
     }
-    
+
     for (channel = 0; channel < max_channels; channel++)
     {
         for (way = 0; way < max_ways; way++)
@@ -572,11 +582,10 @@ void miosmart_get_erasecount(unsigned int *min, unsigned int *max, unsigned int 
                     case BLOCK_TYPE_FREE:
                     {
                         isvalid_erasecount = 1;
+
                     } break;
 
-                    default:
-                    {
-                    } break;
+                    default: {} break;
                 }
 
                 if (isvalid_erasecount)
@@ -640,7 +649,7 @@ int mioadmin_init(void)
     unsigned int ofs_adminhigh = 0;
     unsigned int ofs_adminmiddle = 0;
 
-    page_size = (miosmart.nand->_f.databytes_per_page)? miosmart.nand->_f.databytes_per_page: 8*1024;
+    page_size = (miosmart.nand->_f.databytes_per_page) ? miosmart.nand->_f.databytes_per_page : 8 * 1024;
 
     mioadmin.adminlow_sectors = __SECTOR_OF_BYTE(page_size);
     mioadmin.adminmiddle_sectors = __SECTOR_OF_BYTE(page_size);
@@ -668,7 +677,7 @@ int mioadmin_init(void)
     }
     else
     {
-        printk(KERN_ERR "miosmart_init: memory alloc: fail");
+        printk(KERN_ERR "MIO.ADMIN.INIT: Memory Allocation Fail");
         resp = -1;
     }
 
@@ -698,21 +707,21 @@ static int mioadmin_cmd_to_ftl(unsigned short usCommand, unsigned char ucFeature
     int ext_idx = -1;
     unsigned char is_needretry = 0;
 
-	switch (usCommand)
-	{
+    switch (usCommand)
+    {
         case IO_CMD_DATA_SET_MANAGEMENT:
         case IO_CMD_FLUSH:
         case IO_CMD_STANDBY:
-		case IO_CMD_SWITCH_PARTITION:
+        case IO_CMD_SWITCH_PARTITION:
         case IO_CMD_POWER_DOWN:
         case IO_CMD_READ_DIRECT:
         case IO_CMD_WRITE_DIRECT:
-		case IO_CMD_READ:
-		case IO_CMD_WRITE:
-		{
-			is_needretry = 1;
+        case IO_CMD_READ:
+        case IO_CMD_WRITE:
+        {
+            is_needretry = 1;
 
-		} break;
+        } break;
     }
 
     do
@@ -721,6 +730,7 @@ static int mioadmin_cmd_to_ftl(unsigned short usCommand, unsigned char ucFeature
         if (resp >= 0)
         {
             ext_idx = resp;
+
             resp = Exchange.ftl.fnPutCommand(usCommand, ucFeature, uiAddress, uiLength);
             if (resp >= 0)
             {
@@ -739,26 +749,27 @@ static int mioadmin_cmd_to_ftl(unsigned short usCommand, unsigned char ucFeature
     if (resp >= 0)
     {
         switch (usCommand)
-    	{
-    		case IO_CMD_DATA_SET_MANAGEMENT:
-    		case IO_CMD_FLUSH:
-    		case IO_CMD_STANDBY:
-    		case IO_CMD_SWITCH_PARTITION:
-    		case IO_CMD_POWER_DOWN:
-    		{
+        {
+            case IO_CMD_DATA_SET_MANAGEMENT:
+            case IO_CMD_FLUSH:
+            case IO_CMD_STANDBY:
+            case IO_CMD_SWITCH_PARTITION:
+            case IO_CMD_POWER_DOWN:
+            {
                 do
                 {
                     media_super();
-                }while(Exchange.ftl.fnIsBusy());
 
-    		} break;
-    	}
+                } while (Exchange.ftl.fnIsBusy());
+
+            } break;
+        }
     }
 
     return ext_idx;
 }
 
-int mioadmin_write(unsigned char region, void *buff, unsigned int sectors)
+int mioadmin_write(unsigned char region, void * buff, unsigned int sectors)
 {
     unsigned char sequent = 0;
     unsigned int address = 0, feature = 0;
@@ -775,7 +786,7 @@ int mioadmin_write(unsigned char region, void *buff, unsigned int sectors)
         feature = MIOADMIN_PART_ADMIN2;
 
         // write to NAND
-        for (sequent=0; sequent < 2; sequent++)
+        for (sequent = 0; sequent < 2; sequent++)
         {
             switch (region)
             {
@@ -783,23 +794,25 @@ int mioadmin_write(unsigned char region, void *buff, unsigned int sectors)
                 case 2: { address = mioadmin.addr_adminmiddle[sequent]; } break;
             }
 
-            ext_idx = mioadmin_cmd_to_ftl(IO_CMD_WRITE_DIRECT, __POW(feature,0), address, sectors);
+            ext_idx = mioadmin_cmd_to_ftl(IO_CMD_WRITE_DIRECT, __POW(feature, 0), address, sectors);
+
             if (ext_idx >= 0)
             {
                 dest_buff = (unsigned char*)(*Exchange.buffer.BaseOfDirectWriteCache + __SECTOR_SIZEOF(ext_idx));
-                memcpy ((void *)dest_buff, buff, __SECTOR_SIZEOF(sectors));
+                memcpy((void *)dest_buff, buff, __SECTOR_SIZEOF(sectors));
             }
             do
             {
                 media_super();
-            }while(Exchange.ftl.fnIsAdminBusy());    
+
+            } while (Exchange.ftl.fnIsAdminBusy());
         }
     }
     else  // admin (update low)
     {
         unsigned char *end_of_buff = 0;
         unsigned int diffbytes = 0;
-        unsigned int mask_of_max_writeindex = (*Exchange.buffer.SectorsOfWriteCache-1);
+        unsigned int mask_of_max_writeindex = (*Exchange.buffer.SectorsOfWriteCache - 1);
 
         feature = MIOADMIN_PART_ADMIN1;
 
@@ -859,7 +872,7 @@ int mioadmin_write(unsigned char region, void *buff, unsigned int sectors)
             {
                 sprintf((void *)(textbuff + textbuff_idx), "%02x ", dest_buff[j]); textbuff_idx += 3;
             }
-            
+
             i += 64;
 
             DBG_MIOSMART(KERN_WARNING "%s \n", textbuff);

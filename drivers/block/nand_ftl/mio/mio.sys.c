@@ -25,6 +25,7 @@ static ssize_t miosys_read(struct file * file, char * buf, size_t count, loff_t 
 static ssize_t miosys_write(struct file * file, const char * buf, size_t count, loff_t * ppos);
 static int miosys_print_wearleveldata(void);
 static int miosys_print_smart(void);
+static int miosys_print_readretrytable(void);
 
 struct file_operations miosys_fops =
 {
@@ -47,9 +48,7 @@ char kbuf[16];
 
 static ssize_t miosys_read(struct file * file, char * buf, size_t count, loff_t * ppos)
 {
-  //DBG_MIOSYS(KERN_INFO "miosys_read(file:0x%08x buf:0x%08x count:%d ppos:0x%08x)",
-  //        (unsigned int)file, (unsigned int)buf, count, (unsigned int)ppos);
-
+  //DBG_MIOSYS(KERN_INFO "miosys_read(file:0x%08x buf:0x%08x count:%d ppos:0x%08x)", (unsigned int)file, (unsigned int)buf, count, (unsigned int)ppos);
 
     if (count < 256) { return -EINVAL; }
     if (*ppos != 0) { return 0; }
@@ -68,8 +67,7 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
     memset(cmd_buf, 0, count+1);
     if (copy_from_user(cmd_buf, buf, count)) { return -EINVAL; }
 
-  //DBG_MIOSYS(KERN_INFO "miosys_write(file:0x%08x buf:0x%08x count:%d ppos:0x%08x)",
-  //           (unsigned int)file, (unsigned int)buf, count, (unsigned int)ppos);
+  //DBG_MIOSYS(KERN_INFO "miosys_write(file:0x%08x buf:0x%08x count:%d ppos:0x%08x)", (unsigned int)file, (unsigned int)buf, count, (unsigned int)ppos);
                
     // Command Parse
     {
@@ -77,30 +75,9 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
         {
             MIOSYS_NONE = 0x00000000,
 
-            MIOSYS_REQUEST_SMART     = 0x10000000,
+            MIOSYS_REQUEST_SMART = 0x10000000,
             MIOSYS_REQUEST_WEARLEVEL = 0x20000000,
-
-            MIOSYS_REQEUST_DEBUG = 0x30000000,
-
-            // # echo "debug block enable" > /dev/miosys
-            // # echo "debug block disable" > /dev/miosys
-            MIOSYS_REQUEST_DEBUG_BLOCK = MIOSYS_REQEUST_DEBUG+1,
-
-            // # echo "debug media enable" > /dev/miosys
-            // # echo "debug media disable" > /dev/miosys
-            MIOSYS_REQUEST_DEBUG_MEDIA = MIOSYS_REQEUST_DEBUG+2,
-
-            // # echo "debug nfc.phy.operation enable" > /dev/miosys
-            // # echo "debug nfc.phy.operation disable" > /dev/miosys
-            MIOSYS_REQUEST_DEBUG_NFC_PHY_OPERATION = MIOSYS_REQEUST_DEBUG+3,
-
-            // # echo "debug nfc.phy.rdata enable" > /dev/miosys
-            // # echo "debug nfc.phy.rdata disable" > /dev/miosys
-            MIOSYS_REQUEST_DEBUG_NFC_PHY_READ_DATA = MIOSYS_REQEUST_DEBUG+4,
-
-            // # echo "debug nfc.phy.wdata enable" > /dev/miosys
-            // # echo "debug nfc.phy.wdata disable" > /dev/miosys
-            MIOSYS_REQUEST_DEBUG_NFC_PHY_WRITE_DATA = MIOSYS_REQEUST_DEBUG+5,
+            MIOSYS_REQUEST_READRETRYTABLE = 0x30000000,
 
             MIOSYS_MAX = 0xFFFFFFFF
 
@@ -124,9 +101,9 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
                     {
                         state = MIOSYS_REQUEST_WEARLEVEL;
                     }
-                    else if (!memcmp((const void *)token, (const void *)"debug", strlen("debug")))
+                    else if (!memcmp((const void *)token, (const void *)"readretrytable", strlen("readretrytable")))
                     {
-                        state = MIOSYS_REQEUST_DEBUG;
+                        state = MIOSYS_REQUEST_READRETRYTABLE;
                     }
                     else
                     {
@@ -138,64 +115,7 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
                 case MIOSYS_REQUEST_SMART: { breaker = 1; } break;
                 case MIOSYS_REQUEST_WEARLEVEL: { breaker = 1; } break;
 
-                case MIOSYS_REQEUST_DEBUG:
-                {
-                         if (!memcmp((const void *)token, (const void *)"block",             strlen("block")))             { state = MIOSYS_REQUEST_DEBUG_BLOCK; }
-                    else if (!memcmp((const void *)token, (const void *)"media",             strlen("media")))             { state = MIOSYS_REQUEST_DEBUG_MEDIA; }
-                    else if (!memcmp((const void *)token, (const void *)"nfc.phy.operation", strlen("nfc.phy.operation"))) { state = MIOSYS_REQUEST_DEBUG_NFC_PHY_OPERATION; }
-                    else if (!memcmp((const void *)token, (const void *)"nfc.phy.rdata",     strlen("nfc.phy.rdata")))     { state = MIOSYS_REQUEST_DEBUG_NFC_PHY_READ_DATA; }
-                    else if (!memcmp((const void *)token, (const void *)"nfc.phy.wdata",     strlen("nfc.phy.wdata")))     { state = MIOSYS_REQUEST_DEBUG_NFC_PHY_WRITE_DATA; }
-                    else
-                    {
-                        breaker = 1;
-                    }
-
-                } break;
-
-                case MIOSYS_REQUEST_DEBUG_BLOCK:
-                {
-                         if (!memcmp((const void *)token, (const void *)"enable", strlen("enable")))   { Exchange.debug.misc.block = 1; }
-                    else if (!memcmp((const void *)token, (const void *)"disable", strlen("disable"))) { Exchange.debug.misc.block = 0; }
-                    else                                                                               { breaker = 1; }
-
-                } break;
-
-                case MIOSYS_REQUEST_DEBUG_MEDIA:
-                {
-                         if (!memcmp((const void *)token, (const void *)"enable", strlen("enable")))   { Exchange.debug.misc.media = 1; }
-                    else if (!memcmp((const void *)token, (const void *)"disable", strlen("disable"))) { Exchange.debug.misc.media = 0; }
-                    else                                                                               { breaker = 1; }
-
-                } break;
-
-                case MIOSYS_REQUEST_DEBUG_NFC_PHY_OPERATION:
-                {
-                         if (!memcmp((const void *)token, (const void *)"enable", strlen("enable")))   { Exchange.debug.nfc.phy.operation = 1; }
-                    else if (!memcmp((const void *)token, (const void *)"disable", strlen("disable"))) { Exchange.debug.nfc.phy.operation = 0; }
-                    else                                                                               { breaker = 1; }
-
-                } break;
-
-                case MIOSYS_REQUEST_DEBUG_NFC_PHY_READ_DATA:
-                {
-                         if (!memcmp((const void *)token, (const void *)"enable", strlen("enable")))   { Exchange.debug.nfc.phy.read_data = 1; }
-                    else if (!memcmp((const void *)token, (const void *)"disable", strlen("disable"))) { Exchange.debug.nfc.phy.read_data = 0; }
-                    else                                                                               { breaker = 1; }
-
-                } break;
-
-                case MIOSYS_REQUEST_DEBUG_NFC_PHY_WRITE_DATA:
-                {
-                         if (!memcmp((const void *)token, (const void *)"enable", strlen("enable")))   { Exchange.debug.nfc.phy.write_data = 1; }
-                    else if (!memcmp((const void *)token, (const void *)"disable", strlen("disable"))) { Exchange.debug.nfc.phy.write_data = 0; }
-                    else                                                                               { breaker = 1; }
-
-                } break;
-
-                default:
-                {
-                    breaker = 1;
-                } break;
+                default: { breaker = 1; } break;
 
             }
 
@@ -205,19 +125,11 @@ static ssize_t miosys_write(struct file * file, const char * buf, size_t count, 
         // execute
         switch (state)
         {
-            case MIOSYS_REQUEST_SMART:
-            {
-                miosys_print_smart();
-            } break;
+            case MIOSYS_REQUEST_SMART:          { miosys_print_smart(); } break;
+            case MIOSYS_REQUEST_WEARLEVEL:      { miosys_print_wearleveldata(); } break;
+            case MIOSYS_REQUEST_READRETRYTABLE: { miosys_print_readretrytable(); } break;
 
-            case MIOSYS_REQUEST_WEARLEVEL:
-            {
-                miosys_print_wearleveldata();
-            } break;
-
-            default:
-            {
-            } break;
+            default: {} break;
         }
     }
 
@@ -283,43 +195,8 @@ cont:
     }
 }
 
-#if 0
 int miosys_print_smart(void)
 {
-    // ECC corrected
-    unsigned int *pcurrent = 0;
-    unsigned int channel = 0, way = 0;
-
-    // ECC info
-    DBG_MIOSYS(KERN_INFO "NAND CH%02d-WAY%02d - ECC Count", channel, way);
-
-    for (way=0; way < *Exchange.ftl.Way; way++)
-    {
-        for (channel=0; channel < *Exchange.ftl.Channel; channel++)
-        {
-            // ECC corrected
-            pcurrent = &(Exchange.statistics.ecc_sector.corrected[way][channel]);
-            DBG_MIOSYS(KERN_INFO " ECC corrected count: current:%d", *pcurrent);
-
-            // ECC leveldetected
-            pcurrent = &(Exchange.statistics.ecc_sector.leveldetected[way][channel]);
-            DBG_MIOSYS(KERN_INFO " ECC leveldetected count: current:%d", *pcurrent);
-
-            // ECC uncorrectable
-            pcurrent = &(Exchange.statistics.ecc_sector.uncorrectable[way][channel]);
-            DBG_MIOSYS(KERN_INFO " ECC uncorrectable count: current:%d", *pcurrent);
-
-        }
-    }
-
-    return 0;
-}
-#else
-int miosys_print_smart(void)
-{
-    // ECC corrected
-    unsigned int *pcurrent = 0;
-    unsigned int *paccumulate = 0;
     MIO_SMART_CE_DATA *pnand_accumulate = 0;
     MIO_SMART_CE_DATA *pnand_current = 0;
     unsigned int channel = 0, way = 0;
@@ -336,16 +213,15 @@ int miosys_print_smart(void)
 
     miosmart_update_eccstatus();
 
-    DBG_MIOSYS(KERN_INFO "< SMART INFORMATION >");
-
     miosmart_get_erasecount(&min_erasecount, &max_erasecount, &sum_erasecount, average_erasecount);
     sum_usableblocks = miosmart_get_total_usableblocks();
 
-    for (way=0; way < *Exchange.ftl.Way; way++)
+    for (way = 0; way < *Exchange.ftl.Way; way++)
     {
-        for (channel=0; channel < *Exchange.ftl.Channel; channel++)
+        for (channel = 0; channel < *Exchange.ftl.Channel; channel++)
         {
             pnand_accumulate = &(MioSmartInfo.nand_accumulate[way][channel]);
+
             if (pnand_accumulate)
             {
                 accumulated_sum_readretrycount += pnand_accumulate->readretry_count;
@@ -353,24 +229,28 @@ int miosys_print_smart(void)
         }
     }
 
-    DBG_MIOSYS(KERN_INFO " current read bytes:       %8lld MB (%lld sectors)", (MioSmartInfo.io_current.read_bytes >> 20), MioSmartInfo.io_current.read_sectors);
-    DBG_MIOSYS(KERN_INFO " current write bytes:      %8lld MB (%lld sectors)", (MioSmartInfo.io_current.write_bytes >> 20), MioSmartInfo.io_current.write_sectors);
-    DBG_MIOSYS(KERN_INFO " accumulated read bytes:   %8lld MB (%lld sectors)", (MioSmartInfo.io_accumulate.read_bytes >> 20), MioSmartInfo.io_accumulate.read_sectors);
-    DBG_MIOSYS(KERN_INFO " accumulated write bytes:  %8lld MB (%lld sectors)", (MioSmartInfo.io_accumulate.write_bytes >> 20), MioSmartInfo.io_accumulate.write_sectors);
+    DBG_MIOSYS(KERN_INFO "SMART Information");
 
-    DBG_MIOSYS(KERN_INFO " sum of erasecount:          %u", sum_erasecount);
-    DBG_MIOSYS(KERN_INFO " sum of usable blocks:       %u", sum_usableblocks);
-    DBG_MIOSYS(KERN_INFO " max erasecount:             %u", max_erasecount);
-    DBG_MIOSYS(KERN_INFO " min erasecount:             %u", min_erasecount);
-    DBG_MIOSYS(KERN_INFO " average erasecount:         %u.%02u", average_erasecount[0], average_erasecount[1]);
-    DBG_MIOSYS(KERN_INFO " current readretrycount:     %u", *Exchange.ftl.ReadRetryCount);
-    DBG_MIOSYS(KERN_INFO " accumulated readretrycount: %u", accumulated_sum_readretrycount);
+    DBG_MIOSYS(KERN_INFO "\n Life Cycle I/O");
+    DBG_MIOSYS(KERN_INFO " - Read (%lld MB, %lld Sectors) and Retried (%u Times)", MioSmartInfo.io_accumulate.read_bytes >> 20, MioSmartInfo.io_accumulate.read_sectors, accumulated_sum_readretrycount);
+    DBG_MIOSYS(KERN_INFO " - Write (%lld MB, %lld Sectors)", MioSmartInfo.io_accumulate.write_bytes >> 20, MioSmartInfo.io_accumulate.write_sectors);
 
+    DBG_MIOSYS(KERN_INFO "\n Power Cycle I/O");
+    DBG_MIOSYS(KERN_INFO " - Read (%lld MB, %lld Sectors) and Retried (%u Times)", MioSmartInfo.io_current.read_bytes >> 20, MioSmartInfo.io_current.read_sectors, *Exchange.ftl.ReadRetryCount);
+    DBG_MIOSYS(KERN_INFO " - Write (%lld MB, %lld Sectors)", MioSmartInfo.io_current.write_bytes >> 20, MioSmartInfo.io_current.write_sectors);
 
-    // ECC info
-    for (way=0; way < *Exchange.ftl.Way; way++)
+    DBG_MIOSYS(KERN_INFO "\n Erase Status");
+    DBG_MIOSYS(KERN_INFO " - Total Erase Count:    %u", sum_erasecount);
+    DBG_MIOSYS(KERN_INFO " - Max Erase Count:      %u", max_erasecount);
+    DBG_MIOSYS(KERN_INFO " - Min Erase Count:      %u", min_erasecount);
+    DBG_MIOSYS(KERN_INFO " - Average Erase Count:  %u.%02u", average_erasecount[0], average_erasecount[1]);
+
+    DBG_MIOSYS(KERN_INFO "\n Block Status");
+    DBG_MIOSYS(KERN_INFO " - Total Usable Blocks: %u", sum_usableblocks);
+
+    for (way = 0; way < *Exchange.ftl.Way; way++)
     {
-        for (channel=0; channel < *Exchange.ftl.Channel; channel++)
+        for (channel = 0; channel < *Exchange.ftl.Channel; channel++)
         {
             unsigned int max_channel = 0;
             unsigned int max_way = 0;
@@ -386,10 +266,9 @@ int miosys_print_smart(void)
             Exchange.nfc.fnGetFeatures(&max_channel, &max_way, (void *)&nand);
             total_block = nand._f.mainblocks_per_lun;
 
-            DBG_MIOSYS(KERN_INFO "\n NAND channel:%d way:%d summary", channel, way);
-
             pnand_accumulate = &(MioSmartInfo.nand_accumulate[way][channel]);
             pnand_current = &(MioSmartInfo.nand_current[way][channel]);
+
             if (!pnand_accumulate || !pnand_current)
             {
                 return -1;
@@ -400,46 +279,32 @@ int miosys_print_smart(void)
             retired_block      = Exchange.ftl.fnGetBlocksCount(channel, way, BLOCK_TYPE_DATA_HOT_BAD, BLOCK_TYPE_DATA_COLD_BAD, BLOCK_TYPE_RBAD, 0xFF);
             free_block         = Exchange.ftl.fnGetBlocksCount(channel, way, BLOCK_TYPE_FREE, 0xFF);
             used_block         = total_usable_block - free_block;
-            DBG_MIOSYS(KERN_INFO " - total block:        %d", total_block);
-            DBG_MIOSYS(KERN_INFO " - total usable block: %d", total_usable_block);
-            DBG_MIOSYS(KERN_INFO " - total bad block:    %d", total_bad_block);
-            DBG_MIOSYS(KERN_INFO " - retired block:      %d", retired_block);
-            DBG_MIOSYS(KERN_INFO " - free block:         %d", free_block);
-            DBG_MIOSYS(KERN_INFO " - used block:         %d", used_block);
 
+            DBG_MIOSYS(KERN_INFO "\n NAND CHANNEL:%d WAY:%d Information", channel, way);
 
-//                               "                               ********** *******************"
-            DBG_MIOSYS(KERN_INFO "                                  current         accumulated");
+            /******************************************************************
+             * ECC Information
+             ******************************************************************/
 
-            // ECC corrected
-            pcurrent = &(pnand_current->ecc_sector.corrected);
-            paccumulate = &(pnand_accumulate->ecc_sector.corrected);
-            DBG_MIOSYS(KERN_INFO " - ecc corrected sectors:      %10u %19u", *pcurrent, *paccumulate);
+            DBG_MIOSYS(KERN_INFO "\n  ECC Status                    Power Cycle          Life Cycle");
+            DBG_MIOSYS(KERN_INFO "  - Corrected Sectors:           %10u %19u", pnand_current->ecc_sector.corrected, pnand_accumulate->ecc_sector.corrected);
+            DBG_MIOSYS(KERN_INFO "  - Level Detected Sectors:      %10u %19u", pnand_current->ecc_sector.leveldetected, pnand_accumulate->ecc_sector.leveldetected);
+            DBG_MIOSYS(KERN_INFO "  - Uncorrectable Sectors:       %10u %19u", pnand_current->ecc_sector.uncorrectable, pnand_accumulate->ecc_sector.uncorrectable);
 
-            // ECC leveldetected
-            pcurrent = &(pnand_current->ecc_sector.leveldetected);
-            paccumulate = &(pnand_accumulate->ecc_sector.leveldetected);
-            DBG_MIOSYS(KERN_INFO " - ecc leveldetected sectors:  %10u %19u", *pcurrent, *paccumulate);
+            DBG_MIOSYS(KERN_INFO "\n  Fail Status                   Power Cycle          Life Cycle");
+            DBG_MIOSYS(KERN_INFO "  - Write Fail Count:            %10u %19u", pnand_current->writefail_count, pnand_accumulate->writefail_count);
+            DBG_MIOSYS(KERN_INFO "  - Erase Fail Count:            %10u %19u", pnand_current->erasefail_count, pnand_accumulate->erasefail_count);
 
-            // ECC uncorrectable
-            pcurrent = &(pnand_current->ecc_sector.uncorrectable);
-            paccumulate = &(pnand_accumulate->ecc_sector.uncorrectable);
-            DBG_MIOSYS(KERN_INFO " - ecc uncorrectable sectors:  %10u %19u", *pcurrent, *paccumulate);
+            DBG_MIOSYS(KERN_INFO "\n  Retry Status                  Power Cycle          Life Cycle");
+            DBG_MIOSYS(KERN_INFO "  - Read Retry Count:            %10u %19u", pnand_current->readretry_count, pnand_accumulate->readretry_count);
 
-            // write fail
-            pcurrent = &(pnand_current->writefail_count);
-            paccumulate = &(pnand_accumulate->writefail_count);
-            DBG_MIOSYS(KERN_INFO " - write operation fail count: %10u %19u", *pcurrent, *paccumulate);
-
-            // erase fail
-            pcurrent = &(pnand_current->erasefail_count);
-            paccumulate = &(pnand_accumulate->erasefail_count);
-            DBG_MIOSYS(KERN_INFO " - erase operation fail count: %10u %19u", *pcurrent, *paccumulate);
-
-            // read retry count
-            pcurrent = &(pnand_current->readretry_count);
-            paccumulate = &(pnand_accumulate->readretry_count);
-            DBG_MIOSYS(KERN_INFO " - Read retry count:           %10u %19u", *pcurrent, *paccumulate);
+            DBG_MIOSYS(KERN_INFO "\n  Block Status");
+            DBG_MIOSYS(KERN_INFO "  - Total Block:        %d", total_block);
+            DBG_MIOSYS(KERN_INFO "  - Total Usable Block: %d", total_usable_block);
+            DBG_MIOSYS(KERN_INFO "  - Total Bad Block:    %d", total_bad_block);
+            DBG_MIOSYS(KERN_INFO "  - Retired Block:      %d", retired_block);
+            DBG_MIOSYS(KERN_INFO "  - Free Block:         %d", free_block);
+            DBG_MIOSYS(KERN_INFO "  - Used Block:         %d", used_block);
 
         }
     }
@@ -447,7 +312,6 @@ int miosys_print_smart(void)
 
     return 0;
 }
-#endif
 
 int miosys_print_wearleveldata(void)
 {
@@ -570,4 +434,11 @@ int miosys_print_wearleveldata(void)
     return 0;
 }
 
-
+int miosys_print_readretrytable(void)
+{
+	if (Exchange.nfc.fnReadRetry_PrintTable)
+	{
+		Exchange.nfc.fnReadRetry_PrintTable();
+	}
+    return 0;
+}

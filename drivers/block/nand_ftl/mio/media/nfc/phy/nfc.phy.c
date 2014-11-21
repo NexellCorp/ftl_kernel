@@ -158,8 +158,8 @@ void NFC_PHY_SetNFCSEnable(unsigned int _select)
     volatile unsigned int regval = nfcI->nfcontrol;
 
     regval &= ~__POW(1,NFCONTROL_IRQPEND);
-    if (_select) { regval |= __POW(1,NFCONTROL_NCSENB); }
-    else         { regval &= ~__POW(1,NFCONTROL_NCSENB); NFC_PHY_tDelay(1); }
+    if (_select) { regval |= __POW(1,NFCONTROL_NCSENB);  if (Exchange.sys.fn.LedNfcBusy) { Exchange.sys.fn.LedNfcBusy(); } }
+    else         { regval &= ~__POW(1,NFCONTROL_NCSENB); if (Exchange.sys.fn.LedNfcIdle) { Exchange.sys.fn.LedNfcIdle(); } else { NFC_PHY_tDelay(1); } }
     regval = NFC_PHY_NfcontrolResetBit(regval);
 
     nfcI->nfcontrol = regval;
@@ -458,29 +458,28 @@ void NFC_PHY_ShowUncorrectedData(unsigned int _tried,
     char         * parity_buffer = _parity_buffer;
     unsigned int   bytes_per_parity = _bytes_per_parity;
 
-    __print("\n");
-    __print(" Data/Parity Address: row(%04d), col(%04d), paritycol(%04d) : Try #%d\n", row, col, col+bytes_per_ecc, tried);
-    __print("  ------------------------------------------------------------------------------\n");
-    __print("  Data : bytes_per_ecc(%d) ecc_bits(%d)\n", bytes_per_ecc, ecc_bits);
+    Exchange.sys.fn.print("\n Data/Parity Address: row(%04d), col(%04d), paritycol(%04d) : Try #%d\n", row, col, col+bytes_per_ecc, tried);
+    Exchange.sys.fn.print("  ------------------------------------------------------------------------------\n");
+    Exchange.sys.fn.print("  Data : bytes_per_ecc(%d) ecc_bits(%d)\n", bytes_per_ecc, ecc_bits);
 
     for (i = 0; i < bytes_per_ecc/16; i++)
     {
-        __print("  ");
+        Exchange.sys.fn.print("  ");
         for (j = 0; j < 16; j++)
         {
-            __print("%02x ", read_buffer[i * 16 + j]);
-        }   __print("\n");
+            Exchange.sys.fn.print("%02x ", read_buffer[i * 16 + j]);
+        }   Exchange.sys.fn.print("\n");
     }
 
-    __print("\n");
-    __print("  Parity : bytes_per_parity(%d)\n", bytes_per_parity);
+    Exchange.sys.fn.print("\n");
+    Exchange.sys.fn.print("  Parity : bytes_per_parity(%d)\n", bytes_per_parity);
 
-    __print("  ");
+    Exchange.sys.fn.print("  ");
     for (i = 0; i < bytes_per_parity; i++)
     {
-        __print("%02x ", parity_buffer[i]);
-    }   __print("\n");
-    __print("  ------------------------------------------------------------------------------\n");
+        Exchange.sys.fn.print("%02x ", parity_buffer[i]);
+    }   Exchange.sys.fn.print("\n");
+    Exchange.sys.fn.print("  ------------------------------------------------------------------------------\n");
 }
 
 unsigned int NFC_PHY_EccCorrection(char         * _error_at,
@@ -537,7 +536,7 @@ unsigned int NFC_PHY_EccCorrection(char         * _error_at,
 
         if (read_loop > ((uiMyParityLen * 95) / 100))    // 95% are 0xFF
         {
-            __print("nfc.phy: NFC_PHY_2ndReadLog: this page may have been erased. read_loop:%d / %d \n"read_loop, uiMyParityLen);
+            Exchange.sys.fn.print("nfc.phy: NFC_PHY_2ndReadLog: this page may have been erased. read_loop:%d / %d \n"read_loop, uiMyParityLen);
             {
                 int i=0;
 
@@ -545,11 +544,11 @@ unsigned int NFC_PHY_EccCorrection(char         * _error_at,
                 {
                     if (!(i%64))
                     {
-                        __print("\n [0x%04X]", i);
+                        Exchange.sys.fn.print("\n [0x%04X]", i);
                     }
-                    __print("%02x ", puiMyData[i/sizeof(U32)]);
+                    Exchange.sys.fn.print("%02x ", puiMyData[i/sizeof(U32)]);
                 }
-                __print("\n");
+                Exchange.sys.fn.print("\n");
             }
         }
     }
@@ -593,12 +592,12 @@ unsigned int NFC_PHY_EccCorrection(char         * _error_at,
 
                 if (Exchange.debug.nfc.phy.info_ecc_correction)
                 {
-                    if (NULL != error_at) { __print("%s\n", error_at); error_at = NULL; }
-                    __print("Correction: location[%d] = %08x\n", 0, location[k]);
-                    __print("Correction: err_read[location[%d]/32]   %08x\n", k, err_read[location[k]/32]);
-                    __print("Correction: __POW(1,location[%d]%%32]  ^ %08x\n", k, __POW(1,location[k]%32));
+                    if (NULL != error_at) { Exchange.sys.fn.print("%s\n", error_at); error_at = NULL; }
+                    Exchange.sys.fn.print("Correction: location[%d] = %08x\n", 0, location[k]);
+                    Exchange.sys.fn.print("Correction: err_read[location[%d]/32]   %08x\n", k, err_read[location[k]/32]);
+                    Exchange.sys.fn.print("Correction: __POW(1,location[%d]%%32]  ^ %08x\n", k, __POW(1,location[k]%32));
                     err_read[location[k]/32] ^= __POW(1,location[k]%32);
-                    __print("Correction: err_read[location[%d]/32] = %08x\n", k, err_read[location[k]/32]);
+                    Exchange.sys.fn.print("Correction: err_read[location[%d]/32] = %08x\n", k, err_read[location[k]/32]);
                 }
                 else
                 {
@@ -613,8 +612,8 @@ unsigned int NFC_PHY_EccCorrection(char         * _error_at,
 
             if (Exchange.debug.nfc.phy.info_ecc_corrected)
             {
-                if (NULL != error_at) { __print("%s\n", error_at); error_at = NULL; }
-                __print("Corrected: row(%04d),col(%04d): count(%d)\n", row, col, ecc_error_count);
+                if (NULL != error_at) { Exchange.sys.fn.print("%s\n", error_at); error_at = NULL; }
+                Exchange.sys.fn.print("Corrected: row(%04d),col(%04d): count(%d)\n", row, col, ecc_error_count);
             }
         }
         // Uncorrectable
@@ -640,9 +639,9 @@ unsigned int NFC_PHY_GetEccParitySize(unsigned int _eccbits)
     unsigned int uiBytesPerParity = 0;
 
 #if defined (__BUILD_MODE_X86_WINDOWS_SIMULATOR__)
-    unsigned char pucValidEccList[] = {0}
+    unsigned char pucValidEccList[] = {0};
 #elif defined (__BUILD_MODE_X86_LINUX_DEVICE_DRIVER__)
-    unsigned char pucValidEccList[] = {0}
+    unsigned char pucValidEccList[] = {0};
 #elif defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__) || defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
     unsigned char pucValidEccList[] = {4,8,16,24,40,60};
 #endif
@@ -709,16 +708,16 @@ void NFC_PHY_WriteProtect(unsigned int _wp_enable)
     {
         int io_dir = 0;
 
-        io_dir = nxp_soc_gpio_get_io_dir(Exchange.sys.gpio.nfc_wp);
+        io_dir = nxp_soc_gpio_get_io_dir(Exchange.sys.gpio.c_27);
 
         if (io_dir < 0)
         {
-            __print("NFC_PHY_WriteProtect(Warning) : Invalid Write Protect Port Number !\n");
+            Exchange.sys.fn.print("NFC_PHY_WriteProtect(Warning) : Invalid Write Protect Port Number !\n");
             return;
         }
         else if (1 != io_dir)
         {
-            nxp_soc_gpio_set_io_dir(Exchange.sys.gpio.nfc_wp, 1); // set output mode
+            nxp_soc_gpio_set_io_dir(Exchange.sys.gpio.c_27, 1); // set output mode
         }
     }
 
@@ -732,19 +731,19 @@ void NFC_PHY_WriteProtect(unsigned int _wp_enable)
             {
                 if (Exchange.sys.lvd_detected)
                 {
-                    __print("NFC_PHY_WriteProtect(Warning) : NAND Write Protected Forcibly !!! (Detected RSTN)\n");
-                    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.nfc_wp, 0);
+                    Exchange.sys.fn.print("NFC_PHY_WriteProtect(Warning) : NAND Write Protected Forcibly !!! (Detected RSTN)\n");
+                    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.c_27, 0);
                 }
                 else
                 {
                     // Writable
-                    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.nfc_wp, 1);
+                    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.c_27, 1);
                 }
             }
             else
             {
                 // Writable
-                nxp_soc_gpio_set_out_value(Exchange.sys.gpio.nfc_wp, 1);
+                nxp_soc_gpio_set_out_value(Exchange.sys.gpio.c_27, 1);
             }
 
         } break;
@@ -753,13 +752,13 @@ void NFC_PHY_WriteProtect(unsigned int _wp_enable)
         case 1:
         {
             // Write Protected
-            nxp_soc_gpio_set_out_value(Exchange.sys.gpio.nfc_wp, 0);
+            nxp_soc_gpio_set_out_value(Exchange.sys.gpio.c_27, 0);
 
         } break;
 
         default:
         {
-            __print("NFC_PHY_WriteProtect(Warning) : Invaild Function Parameter - 0 : disable, 1 : enable\n");
+            Exchange.sys.fn.print("NFC_PHY_WriteProtect(Warning) : Invaild Function Parameter - 0 : disable, 1 : enable\n");
 
         } break;
     }
@@ -772,7 +771,7 @@ void NFC_PHY_WriteProtect(unsigned int _wp_enable)
     {
         case 0:  { nxp_gpio_set_value(CFG_IO_NAND_nWP, 1); } break; // Writable
         case 1:  { nxp_gpio_set_value(CFG_IO_NAND_nWP, 0); } break; // Write Protected
-        default: { __print("NFC_PHY_WriteProtect(Warning) : Invaild Function Parameter - 0 : disable, 1 : enable\n"); } break;
+        default: { Exchange.sys.fn.print("NFC_PHY_WriteProtect(Warning) : Invaild Function Parameter - 0 : disable, 1 : enable\n"); } break;
     }
 #endif
 }
@@ -839,13 +838,11 @@ unsigned int NFC_PHY_Init(unsigned int _scan_format)
     unsigned int scan_format = _scan_format;
 
 #if defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__)
-    __print = printk;
     nfcI = (MCUS_I *)IO_ADDRESS(PHY_BASEADDR_MCUSTOP_MODULE);
     nfcShadowI = (NFC_SHADOW_I *)__PB_IO_MAP_NAND_VIRT;
     nfcShadowI16 = (NFC_SHADOW_I16 *)__PB_IO_MAP_NAND_VIRT;
     nfcShadowI32 = (NFC_SHADOW_I32 *)__PB_IO_MAP_NAND_VIRT;
 #elif defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
-    __print = printf;
     nfcI = (MCUS_I *)IO_ADDRESS(PHY_BASEADDR_MCUSTOP_MODULE);
     nfcShadowI = (NFC_SHADOW_I *)CONFIG_SYS_NAND_BASE;
     nfcShadowI16 = (NFC_SHADOW_I16 *)CONFIG_SYS_NAND_BASE;
@@ -932,7 +929,7 @@ unsigned int NFC_PHY_Init(unsigned int _scan_format)
     __error_location_buffer1 = (char *)malloc(512 * sizeof(char));
 #endif
 
-    if (Exchange.debug.nfc.phy.operation) { __print("EWS.NFC.PHY: Init\n"); }
+    if (Exchange.debug.nfc.phy.operation) { Exchange.sys.fn.print("EWS.NFC.PHY: Init\n"); }
 
     return NFC_PHY_ScanFeature(scan_format);
 }
@@ -955,7 +952,7 @@ void NFC_PHY_DeInit(void)
     if (__error_location_buffer1) { free(__error_location_buffer1); __error_location_buffer1 = 0; }
 #endif
 
-    if (Exchange.debug.nfc.phy.operation)  {__print("EWS.NFC.PHY: DeInit\n"); }
+    if (Exchange.debug.nfc.phy.operation) { Exchange.sys.fn.print("EWS.NFC.PHY: DeInit\n"); }
 }
 
 void NFC_PHY_Suspend(void)
@@ -1048,7 +1045,7 @@ int NFC_PHY_EccInfoInit(unsigned int _max_channel, unsigned int _max_way, const 
             }
             else
             {
-                __print("NFC_PHY_EccInfoInit: error! memory allocation failed\n");
+                Exchange.sys.fn.print("NFC_PHY_EccInfoInit: error! memory allocation failed\n");
                 resp = -1;
             }
         }
@@ -1056,7 +1053,7 @@ int NFC_PHY_EccInfoInit(unsigned int _max_channel, unsigned int _max_way, const 
     }
     else
     {
-        __print("NFC_PHY_EccInfoInit: error! memory allocation failed\n");
+        Exchange.sys.fn.print("NFC_PHY_EccInfoInit: error! memory allocation failed\n");
         resp = -1;
     }
 
@@ -1069,7 +1066,7 @@ int NFC_PHY_EccInfoInit(unsigned int _max_channel, unsigned int _max_way, const 
         Exchange.nfc.ecc.max_correct_bit = (unsigned int **)NfcEccStatus.max_correct_bit;
     }
 
-    if (Exchange.debug.nfc.phy.operation) { __print("EWS.NFC.PHY: Ecc Info Init:%d\n", resp); }
+    if (Exchange.debug.nfc.phy.operation) { Exchange.sys.fn.print("EWS.NFC.PHY: Ecc Info Init:%d\n", resp); }
 
     return resp;
 }
@@ -1214,7 +1211,7 @@ void NFC_PHY_EccInfoDeInit(void)
         NfcEccStatus.max_correct_bit = 0;
     }
 
-    if (Exchange.debug.nfc.phy.operation) { __print("EWS.NFC.PHY: Ecc Info DeInit\n"); }
+    if (Exchange.debug.nfc.phy.operation) { Exchange.sys.fn.print("EWS.NFC.PHY: Ecc Info DeInit\n"); }
 
 }
 
@@ -1266,42 +1263,42 @@ void NFC_PHY_SetFeatures(unsigned int _max_channel, unsigned int _max_way, void 
 
     if (Exchange.debug.nfc.phy.info_feature)
     {
-        __print("Input Feature:\n");
-        __print(" max_channel: %u\n", phy_features.max_channel);
-        __print(" max_way: %u\n", phy_features.max_way);
-        __print(" interface_type: %u\n", phy_features.nand_config._f.interfacetype);
-        __print(" onfi_timing_mode: %u\n", phy_features.nand_config._f.onfi_timing_mode);
+        Exchange.sys.fn.print("Input Feature:\n");
+        Exchange.sys.fn.print(" max_channel: %u\n", phy_features.max_channel);
+        Exchange.sys.fn.print(" max_way: %u\n", phy_features.max_way);
+        Exchange.sys.fn.print(" interface_type: %u\n", phy_features.nand_config._f.interfacetype);
+        Exchange.sys.fn.print(" onfi_timing_mode: %u\n", phy_features.nand_config._f.onfi_timing_mode);
 
-        __print(" tClk: %u\n",  phy_features.nand_config._f.timing.async.tClk);
-        __print(" tRWC: %u\n",  phy_features.nand_config._f.timing.async.tRWC);
-        __print(" tR: %u\n",    phy_features.nand_config._f.timing.async.tR);
-        __print(" tWB: %u\n",   phy_features.nand_config._f.timing.async.tWB);
-        __print(" tCCS: %u\n",  phy_features.nand_config._f.timing.async.tCCS);
-        __print(" tADL: %u\n",  phy_features.nand_config._f.timing.async.tADL);
-        __print(" tRHW: %u\n",  phy_features.nand_config._f.timing.async.tRHW);
-        __print(" tWHR: %u\n",  phy_features.nand_config._f.timing.async.tWHR);
-        __print(" tWW: %u\n",   phy_features.nand_config._f.timing.async.tWW);
-        __print(" tRR: %u\n",   phy_features.nand_config._f.timing.async.tRR);
-        __print(" tFEAT: %u\n", phy_features.nand_config._f.timing.async.tFEAT);
+        Exchange.sys.fn.print(" tClk: %u\n",  phy_features.nand_config._f.timing.async.tClk);
+        Exchange.sys.fn.print(" tRWC: %u\n",  phy_features.nand_config._f.timing.async.tRWC);
+        Exchange.sys.fn.print(" tR: %u\n",    phy_features.nand_config._f.timing.async.tR);
+        Exchange.sys.fn.print(" tWB: %u\n",   phy_features.nand_config._f.timing.async.tWB);
+        Exchange.sys.fn.print(" tCCS: %u\n",  phy_features.nand_config._f.timing.async.tCCS);
+        Exchange.sys.fn.print(" tADL: %u\n",  phy_features.nand_config._f.timing.async.tADL);
+        Exchange.sys.fn.print(" tRHW: %u\n",  phy_features.nand_config._f.timing.async.tRHW);
+        Exchange.sys.fn.print(" tWHR: %u\n",  phy_features.nand_config._f.timing.async.tWHR);
+        Exchange.sys.fn.print(" tWW: %u\n",   phy_features.nand_config._f.timing.async.tWW);
+        Exchange.sys.fn.print(" tRR: %u\n",   phy_features.nand_config._f.timing.async.tRR);
+        Exchange.sys.fn.print(" tFEAT: %u\n", phy_features.nand_config._f.timing.async.tFEAT);
 
-        __print(" tCS: %u\n",   phy_features.nand_config._f.timing.async.tCS);
-        __print(" tCH: %u\n",   phy_features.nand_config._f.timing.async.tCH);
-        __print(" tCLS: %u\n",  phy_features.nand_config._f.timing.async.tCLS);
-        __print(" tALS: %u\n",  phy_features.nand_config._f.timing.async.tALS);
-        __print(" tCLH: %u\n",  phy_features.nand_config._f.timing.async.tCLH);
-        __print(" tALH: %u\n",  phy_features.nand_config._f.timing.async.tALH);
-        __print(" tWP: %u\n",   phy_features.nand_config._f.timing.async.tWP);
-        __print(" tWH: %u\n",   phy_features.nand_config._f.timing.async.tWH);
-        __print(" tWC: %u\n",   phy_features.nand_config._f.timing.async.tWC);
-        __print(" tDS: %u\n",   phy_features.nand_config._f.timing.async.tDS);
-        __print(" tDH: %u\n",   phy_features.nand_config._f.timing.async.tDH);
+        Exchange.sys.fn.print(" tCS: %u\n",   phy_features.nand_config._f.timing.async.tCS);
+        Exchange.sys.fn.print(" tCH: %u\n",   phy_features.nand_config._f.timing.async.tCH);
+        Exchange.sys.fn.print(" tCLS: %u\n",  phy_features.nand_config._f.timing.async.tCLS);
+        Exchange.sys.fn.print(" tALS: %u\n",  phy_features.nand_config._f.timing.async.tALS);
+        Exchange.sys.fn.print(" tCLH: %u\n",  phy_features.nand_config._f.timing.async.tCLH);
+        Exchange.sys.fn.print(" tALH: %u\n",  phy_features.nand_config._f.timing.async.tALH);
+        Exchange.sys.fn.print(" tWP: %u\n",   phy_features.nand_config._f.timing.async.tWP);
+        Exchange.sys.fn.print(" tWH: %u\n",   phy_features.nand_config._f.timing.async.tWH);
+        Exchange.sys.fn.print(" tWC: %u\n",   phy_features.nand_config._f.timing.async.tWC);
+        Exchange.sys.fn.print(" tDS: %u\n",   phy_features.nand_config._f.timing.async.tDS);
+        Exchange.sys.fn.print(" tDH: %u\n",   phy_features.nand_config._f.timing.async.tDH);
 
-        __print(" tCEA: %u\n",  phy_features.nand_config._f.timing.async.tCEA);
-        __print(" tREA: %u\n",  phy_features.nand_config._f.timing.async.tREA);
-        __print(" tRP: %u\n",   phy_features.nand_config._f.timing.async.tRP);
-        __print(" tREH: %u\n",  phy_features.nand_config._f.timing.async.tREH);
-        __print(" tRC: %u\n",   phy_features.nand_config._f.timing.async.tRC);
-        __print(" tCOH: %u\n",  phy_features.nand_config._f.timing.async.tCOH);
+        Exchange.sys.fn.print(" tCEA: %u\n",  phy_features.nand_config._f.timing.async.tCEA);
+        Exchange.sys.fn.print(" tREA: %u\n",  phy_features.nand_config._f.timing.async.tREA);
+        Exchange.sys.fn.print(" tRP: %u\n",   phy_features.nand_config._f.timing.async.tRP);
+        Exchange.sys.fn.print(" tREH: %u\n",  phy_features.nand_config._f.timing.async.tREH);
+        Exchange.sys.fn.print(" tRC: %u\n",   phy_features.nand_config._f.timing.async.tRC);
+        Exchange.sys.fn.print(" tCOH: %u\n",  phy_features.nand_config._f.timing.async.tCOH);
     }
 
     {
@@ -1369,18 +1366,18 @@ void NFC_PHY_SetFeatures(unsigned int _max_channel, unsigned int _max_way, void 
 
         if (Exchange.debug.nfc.phy.info_feature)
         {
-            __print("Change Feature:\n");
-            __print(" tR:      %u -> %u\n", tR, NfcTime.tR);
-            __print(" tWB:     %u -> %u\n", tWB, NfcTime.tWB);
-            __print(" tCCS:    %u -> %u\n", tCCS, NfcTime.tCCS);
-            __print(" tCCS2:   %u -> %u\n", tCCS2, NfcTime.tCCS2);
-            __print(" tADL:    %u -> %u\n", tADL, NfcTime.tADL);
-            __print(" tRHW:    %u -> %u\n", tRHW, NfcTime.tRHW);
-            __print(" tWHR:    %u -> %u\n", tWHR, NfcTime.tWHR);
-            __print(" tWW:     %u -> %u\n", tWW, NfcTime.tWW);
-            __print(" tRR:     %u -> %u\n", tRR, NfcTime.tRR);
-            __print(" tFEAT:   %u -> %u\n", tFEAT, NfcTime.tFEAT);
-            __print(" tParity: %u -> %u\n", tParity, NfcTime.tParity);
+            Exchange.sys.fn.print("Change Feature:\n");
+            Exchange.sys.fn.print(" tR:      %u -> %u\n", tR, NfcTime.tR);
+            Exchange.sys.fn.print(" tWB:     %u -> %u\n", tWB, NfcTime.tWB);
+            Exchange.sys.fn.print(" tCCS:    %u -> %u\n", tCCS, NfcTime.tCCS);
+            Exchange.sys.fn.print(" tCCS2:   %u -> %u\n", tCCS2, NfcTime.tCCS2);
+            Exchange.sys.fn.print(" tADL:    %u -> %u\n", tADL, NfcTime.tADL);
+            Exchange.sys.fn.print(" tRHW:    %u -> %u\n", tRHW, NfcTime.tRHW);
+            Exchange.sys.fn.print(" tWHR:    %u -> %u\n", tWHR, NfcTime.tWHR);
+            Exchange.sys.fn.print(" tWW:     %u -> %u\n", tWW, NfcTime.tWW);
+            Exchange.sys.fn.print(" tRR:     %u -> %u\n", tRR, NfcTime.tRR);
+            Exchange.sys.fn.print(" tFEAT:   %u -> %u\n", tFEAT, NfcTime.tFEAT);
+            Exchange.sys.fn.print(" tParity: %u -> %u\n", tParity, NfcTime.tParity);
         }
 
         // timing calculation
@@ -1407,12 +1404,12 @@ void NFC_PHY_SetFeatures(unsigned int _max_channel, unsigned int _max_way, void 
 
         if (Exchange.debug.nfc.phy.info_feature)
         {
-            __print("Timing Calculation\n");
-            __print(" BCLK: %u HZ\n", clkhz);
-            __print(" tCS: %u, tCH: %u tCLS: %u, tCLH: %u, tWP: %u, tWH: %u, tWC: %u\n", tCS, tCH, tCLS, tCLH, tWP, tWH, tWC);
-            __print(" tDS: %u, tDH: %u, tCEA: %u, tREA: %u, tRP: %u, tREH: %u, tRC: %u, tCOH: %u\n", tDS, tDH, tCEA, tREA, tRP, tREH, tRC, tCOH);
-            __print(" tRCS: %u, tWCS0: %u, tWCS1: %u, tRACC: %u, tWACC: %u, tRCH: %u, tWCH0: %u, tWCH1: %u\n", tRCS, tWCS0, tWCS1, tRACC, tWACC, tRCH, tWCH0, tWCH1);
-            __print(" tACS: %u, tCOS: %u, tACC: %u, tOCH: %u, tCAH: %u\n", tACS, tCOS, tACC, tOCH, tCAH);
+            Exchange.sys.fn.print("Timing Calculation\n");
+            Exchange.sys.fn.print(" BCLK: %u HZ\n", clkhz);
+            Exchange.sys.fn.print(" tCS: %u, tCH: %u tCLS: %u, tCLH: %u, tWP: %u, tWH: %u, tWC: %u\n", tCS, tCH, tCLS, tCLH, tWP, tWH, tWC);
+            Exchange.sys.fn.print(" tDS: %u, tDH: %u, tCEA: %u, tREA: %u, tRP: %u, tREH: %u, tRC: %u, tCOH: %u\n", tDS, tDH, tCEA, tREA, tRP, tREH, tRC, tCOH);
+            Exchange.sys.fn.print(" tRCS: %u, tWCS0: %u, tWCS1: %u, tRACC: %u, tWACC: %u, tRCH: %u, tWCH0: %u, tWCH1: %u\n", tRCS, tWCS0, tWCS1, tRACC, tWACC, tRCH, tWCH0, tWCH1);
+            Exchange.sys.fn.print(" tACS: %u, tCOS: %u, tACC: %u, tOCH: %u, tCAH: %u\n", tACS, tCOS, tACC, tOCH, tCAH);
         }
     }
 
@@ -1431,7 +1428,7 @@ void NFC_PHY_SetFeatures(unsigned int _max_channel, unsigned int _max_way, void 
 
             if (Exchange.debug.nfc.phy.info_feature)
             {
-                __print(" tACS: %u, tCOS: %u, tACC: %u, tOCH: %u, tCAH: %u\n", tACS, tCOS, tACC, tOCH, tCAH);
+                Exchange.sys.fn.print(" tACS: %u, tCOS: %u, tACC: %u, tOCH: %u, tCAH: %u\n", tACS, tCOS, tACC, tOCH, tCAH);
             }
 
             for (way = 0; way < max_way; way++)
@@ -1481,13 +1478,14 @@ void NFC_PHY_SetFeatures(unsigned int _max_channel, unsigned int _max_way, void 
 /******************************************************************************
  *
  ******************************************************************************/
-int NFC_PHY_ReadId(unsigned int _channel, unsigned int _way, char * _id, char * _onfi_id)
+int NFC_PHY_ReadId(unsigned int _channel, unsigned int _way, char * _id, char * _onfi_id, char * _jedec_id)
 {
     int res = 0;
     unsigned int channel = _channel;
     unsigned int way = _way;
     char * id = _id;
     char * onfi_id = _onfi_id;
+    char * jedec_id = _jedec_id;
     char status = 0;
 
     unsigned int expire = 10000;
@@ -1536,6 +1534,16 @@ int NFC_PHY_ReadId(unsigned int _channel, unsigned int _way, char * _id, char * 
                 *onfi_id = 0; onfi_id++;
             }
 
+            if (jedec_id)
+            {
+                *jedec_id = 0; jedec_id++;
+                *jedec_id = 0; jedec_id++;
+                *jedec_id = 0; jedec_id++;
+                *jedec_id = 0; jedec_id++;
+                *jedec_id = 0; jedec_id++;
+                *jedec_id = 0; jedec_id++;
+            }
+
             res = -1;
         }
         else
@@ -1568,6 +1576,20 @@ int NFC_PHY_ReadId(unsigned int _channel, unsigned int _way, char * _id, char * 
                 *onfi_id++ = NFC_PHY_RData();
                 *onfi_id++ = NFC_PHY_RData();
                 *onfi_id++ = NFC_PHY_RData();
+            }
+
+            if (jedec_id)
+            {
+                NFC_PHY_Cmd(NF_CMD_READ_ID);
+                NFC_PHY_Addr(0x40);
+                NFC_PHY_tDelay(NfcTime.tWHR);
+
+                *jedec_id++ = NFC_PHY_RData();
+                *jedec_id++ = NFC_PHY_RData();
+                *jedec_id++ = NFC_PHY_RData();
+                *jedec_id++ = NFC_PHY_RData();
+                *jedec_id++ = NFC_PHY_RData();
+                *jedec_id++ = NFC_PHY_RData();
             }
         }
     }
@@ -1643,14 +1665,11 @@ void NFC_PHY_GetOnfiFeature(unsigned int _channel, unsigned int _way, unsigned c
     NFC_PHY_ChipSelect(channel, way, __FALSE);
 }
 
-void NFC_PHY_GetOnfiParameter(unsigned int _channel, unsigned int _way, unsigned char _feature_address, unsigned char * _parameter, unsigned char * _ext_parameter)
+void NFC_PHY_GetStandardParameter(unsigned int _channel, unsigned int _way, unsigned char _feature_address, unsigned char * _parameter, unsigned char * _ext_parameter)
 {
     unsigned int channel = _channel;
     unsigned int way = _way;
     unsigned char feature_address = _feature_address;
-
-    ONFI_PARAMETER * onfi_param = (ONFI_PARAMETER *)_parameter;
-    ONFI_EXT_PARAMETER * onfi_ext_param = (ONFI_EXT_PARAMETER *)_ext_parameter;
 
     unsigned char * read_parameter = (unsigned char *)0;
     unsigned char * read_ext_parameter = (unsigned char *)0;
@@ -1673,6 +1692,9 @@ void NFC_PHY_GetOnfiParameter(unsigned int _channel, unsigned int _way, unsigned
          **********************************************************************/
         if (0x00 == feature_address)
         {
+            ONFI_PARAMETER * onfi_param = (ONFI_PARAMETER *)_parameter;
+            ONFI_EXT_PARAMETER * onfi_ext_param = (ONFI_EXT_PARAMETER *)_ext_parameter;
+
             /******************************************************************
              * Read ONFI Parameter
              ******************************************************************/
@@ -1876,7 +1898,59 @@ void NFC_PHY_GetOnfiParameter(unsigned int _channel, unsigned int _way, unsigned
         /**********************************************************************
          * JEDEC Parameter
          **********************************************************************/
-        else if (0x40 == feature_address) {}
+        else if (0x40 == feature_address)
+        {
+            JEDEC_PARAMETER * jedec_param = (JEDEC_PARAMETER *)_parameter;
+
+            /******************************************************************
+             * Read JEDEC standard formatted Parameter
+             ******************************************************************/
+            read_offset = 0;
+            read_done = 0;
+
+            for (parameter_page_loop = 0; parameter_page_loop < 16; parameter_page_loop++)
+            {
+                read_parameter = (unsigned char *)jedec_param->_c;
+
+                for (read_loop = 0; read_loop < sizeof(jedec_param->_c); read_loop++)
+                {
+                    if (!read_done) { *read_parameter++ = NFC_PHY_RData(); }
+                    else            { NFC_PHY_RData(); }
+
+                    read_offset += 1;
+                }
+
+                if (!read_done)
+                {
+                    // Check Integrity CRC
+                    if (jedec_param->_f.integrity_crc == Exchange.sys.fn.get_crc16(0x4F4E, (void *)jedec_param->_c, sizeof(jedec_param->_c) - 2))
+                    {
+                        read_done = 1;
+                        break;
+                    }
+                }
+            }
+
+#if 0 // view the parameters
+            Exchange.sys.fn.print("parameter_page_loop:%d \n", parameter_page_loop);
+            {
+                unsigned int i=0;
+
+                for (i=0; i<512; i++)
+                {
+                    if (i%32 == 0)
+                  //if (i%10 == 0)
+                    {
+                        Exchange.sys.fn.print("\n[%04x(%04d)] ", i, i);
+                    }
+
+                    Exchange.sys.fn.print("%02x ", jedec_param->_c[i]);
+                }
+            }
+            Exchange.sys.fn.print("\n");
+#endif
+
+        }
     }
     NFC_PHY_ChipSelect(channel, way, __FALSE);
 }
@@ -1987,7 +2061,7 @@ int NFC_PHY_1stRead(unsigned int _channel,
         {
             if (Exchange.debug.nfc.phy.warn_prohibited_block_access)
             {
-                __print("EWS.NFC: Warnning: Read Requested \"Block %d\" Prohibited, But Allowed !!!\n", block);
+                Exchange.sys.fn.print("EWS.NFC: Warnning: Read Requested \"Block %d\" Prohibited, But Allowed !!!\n", block);
             }
         }
     }
@@ -2188,7 +2262,7 @@ int NFC_PHY_2ndReadLog(unsigned int _channel,
         unsigned int _column = _col;
         unsigned int _page   = __NROOT(_row&0x000000FF,0);
         unsigned int _block  = __NROOT(_row&0x000FFF00,8);
-        __print("Read.Log     : block(%04d), page(%04d) => row(%08d), column(%04d) ... Issue\n", _block, _page, _row, _column);
+        Exchange.sys.fn.print("Read.Log     : block(%04d), page(%04d) => row(%08d), column(%04d) ... Issue\n", _block, _page, _row, _column);
     }
 
     /**************************************************************************
@@ -2306,14 +2380,14 @@ int NFC_PHY_2ndReadLog(unsigned int _channel,
 
                 if (!retryable && Exchange.debug.nfc.phy.err_ecc_uncorrectable)
                 {
-                    __print("@ 2ndReadLog:Log:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
+                    Exchange.sys.fn.print("@ 2ndReadLog:Log:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
                 }
             }
             else
             {
                 if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable && ecc_uncorrected_retry)
                 {
-                    __print("@ 2ndReadLog:Log:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
+                    Exchange.sys.fn.print("@ 2ndReadLog:Log:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
                 }
             }
 
@@ -2429,14 +2503,14 @@ int NFC_PHY_2ndReadLog(unsigned int _channel,
 
                 if (!retryable && Exchange.debug.nfc.phy.err_ecc_uncorrectable)
                 {
-                    __print("@ 2ndReadLog:Map:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
+                    Exchange.sys.fn.print("@ 2ndReadLog:Map:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
                 }
             }
             else
             {
                 if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable && ecc_uncorrected_retry)
                 {
-                    __print("@ 2ndReadLog:Map:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
+                    Exchange.sys.fn.print("@ 2ndReadLog:Map:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
                 }
             }
 
@@ -2452,7 +2526,7 @@ int NFC_PHY_2ndReadLog(unsigned int _channel,
         unsigned int _column = _col;
         unsigned int _page   = __NROOT(_row&0x000000FF,0);
         unsigned int _block  = __NROOT(_row&0x000FFF00,8);
-        __print("Read.Log     : block(%04d), page(%04d) => row(%08d), column(%04d) ... Done\n", _block, _page, _row, _column);
+        Exchange.sys.fn.print("Read.Log     : block(%04d), page(%04d) => row(%08d), column(%04d) ... Done\n", _block, _page, _row, _column);
     }
 
     return 0;
@@ -2548,8 +2622,8 @@ int NFC_PHY_2ndReadData(unsigned int _stage,
         unsigned int _page   = __NROOT(_row&0x000000FF,0);
         unsigned int _block  = __NROOT(_row&0x000FFF00,8);
 
-        __print("Read.Data.?  : bytes_per_data_ecc(%d), bytes_per_data_parity(%d), data_ecc_bits(%d)\n", bytes_per_data_ecc, bytes_per_data_parity, data_ecc_bits);
-        __print("Read.Data%s  : block(%04d), page(%04d) => row(%08d), column(%04d) ... Issue\n", (8 == stage) ? ".s" : (indexed ? ".i" : "  "), _block, _page, _row, _column);
+        Exchange.sys.fn.print("Read.Data.?  : bytes_per_data_ecc(%d), bytes_per_data_parity(%d), data_ecc_bits(%d)\n", bytes_per_data_ecc, bytes_per_data_parity, data_ecc_bits);
+        Exchange.sys.fn.print("Read.Data%s  : block(%04d), page(%04d) => row(%08d), column(%04d) ... Issue\n", (8 == stage) ? ".s" : (indexed ? ".i" : "  "), _block, _page, _row, _column);
     }
 
     /**************************************************************************
@@ -2672,14 +2746,14 @@ int NFC_PHY_2ndReadData(unsigned int _stage,
 
                     if (!retryable && Exchange.debug.nfc.phy.err_ecc_uncorrectable)
                     {
-                        __print("@ 2ndReadData:Data.1st:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
+                        Exchange.sys.fn.print("@ 2ndReadData:Data.1st:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
                     }
                 }
                 else
                 {
                     if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable && ecc_uncorrected_retry)
                     {
-                        __print("@ 2ndReadData:Data.1st:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
+                        Exchange.sys.fn.print("@ 2ndReadData:Data.1st:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
                     }
                 }
 
@@ -2808,14 +2882,14 @@ int NFC_PHY_2ndReadData(unsigned int _stage,
 
                         if (!retryable && Exchange.debug.nfc.phy.err_ecc_uncorrectable)
                         {
-                            __print("@ 2ndReadData:Data.2nd:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
+                            Exchange.sys.fn.print("@ 2ndReadData:Data.2nd:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
                         }
                     }
                     else
                     {
                         if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable && ecc_uncorrected_retry)
                         {
-                            __print("@ 2ndReadData:Data.2nd:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
+                            Exchange.sys.fn.print("@ 2ndReadData:Data.2nd:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
                         }
                     }
 
@@ -2939,14 +3013,14 @@ int NFC_PHY_2ndReadData(unsigned int _stage,
 
                     if (!retryable && Exchange.debug.nfc.phy.err_ecc_uncorrectable)
                     {
-                        __print("@ 2ndReadData:Data.3rd:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
+                        Exchange.sys.fn.print("@ 2ndReadData:Data.3rd:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
                     }
                 }
                 else
                 {
                     if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable && ecc_uncorrected_retry)
                     {
-                        __print("@ 2ndReadData:Data.3rd:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
+                        Exchange.sys.fn.print("@ 2ndReadData:Data.3rd:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
                     }
                 }
 
@@ -3089,14 +3163,14 @@ int NFC_PHY_2ndReadData(unsigned int _stage,
 
                         if (!retryable && Exchange.debug.nfc.phy.err_ecc_uncorrectable)
                         {
-                            __print("@ 2ndReadData:Spare:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
+                            Exchange.sys.fn.print("@ 2ndReadData:Spare:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Un-Corrected\n", row, col, ecc_uncorrected_retry+1);
                         }
                     }
                     else
                     {
                         if (!retryable && Exchange.debug.nfc.phy.warn_ecc_uncorrectable && ecc_uncorrected_retry)
                         {
-                            __print("@ 2ndReadData:Spare:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
+                            Exchange.sys.fn.print("@ 2ndReadData:Spare:row(%04d),col(%04d) - Un-Corrected Retry #%d Times => Finally Corrected\n", row, col, ecc_uncorrected_retry+1);
                         }
                     }
 
@@ -3115,7 +3189,7 @@ int NFC_PHY_2ndReadData(unsigned int _stage,
         unsigned int _column = _col;
         unsigned int _page   = __NROOT(_row&0x000000FF,0);
         unsigned int _block  = __NROOT(_row&0x000FFF00,8);
-        __print("Read.Data%s  : block(%04d), page(%04d) => row(%08d), column(%04d) ... Done\n", (8 == stage) ? ".s" : (indexed ? ".i" : "  "), _block, _page, _row, _column);
+        Exchange.sys.fn.print("Read.Data%s  : block(%04d), page(%04d) => row(%08d), column(%04d) ... Done\n", (8 == stage) ? ".s" : (indexed ? ".i" : "  "), _block, _page, _row, _column);
     }
 
     return 0;
@@ -3197,7 +3271,7 @@ int NFC_PHY_1stWriteLog(unsigned int _channel,
         unsigned int _page   = __NROOT(_row0&0x000000FF,0);
         unsigned int _block  = __NROOT(_row0&0x000F0000,8) + __NROOT(_row0&0x0000FF00,8);
 
-        __print("Write.Log.0  : block(%04d), page(%04d) => row(%08d), column(%04d) .", _block, _page, _row0, _column);
+        Exchange.sys.fn.print("Write.Log.0  : block(%04d), page(%04d) => row(%08d), column(%04d) .", _block, _page, _row0, _column);
 
         if ((int)_row1 >= 0)
         {
@@ -3205,8 +3279,8 @@ int NFC_PHY_1stWriteLog(unsigned int _channel,
             _page   = __NROOT(_row1&0x000000FF,0);
             _block  = __NROOT(_row1&0x000F0000,8) + __NROOT(_row1&0x0000FF00,8);
 
-            __print("\n");
-            __print(".. Write.Log.1  : block(%04d), page(%04d) => row(%08d), column(%04d) .", _block, _page, _row1, _column);
+            Exchange.sys.fn.print("\n");
+            Exchange.sys.fn.print(".. Write.Log.1  : block(%04d), page(%04d) => row(%08d), column(%04d) .", _block, _page, _row1, _column);
         }
     }
 
@@ -3217,7 +3291,7 @@ int NFC_PHY_1stWriteLog(unsigned int _channel,
     {
         if (Exchange.debug.nfc.phy.warn_prohibited_block_access)
         {
-            __print("EWS.NFC: Warnning: Write Requested \"Block %d\" or \"Block %d\" Prohibited, But Allowed !!!\n", block0, block1);
+            Exchange.sys.fn.print("EWS.NFC: Warnning: Write Requested \"Block %d\" or \"Block %d\" Prohibited, But Allowed !!!\n", block0, block1);
         }
     }
 
@@ -3482,7 +3556,7 @@ int NFC_PHY_1stWriteLog(unsigned int _channel,
     }
     NFC_PHY_ChipSelect(channel, way, __FALSE);
 
-    if (Exchange.debug.nfc.phy.operation) { __print(".. Issue ."); }
+    if (Exchange.debug.nfc.phy.operation) { Exchange.sys.fn.print(".. Issue ."); }
 
     return 0;
 }
@@ -3529,8 +3603,8 @@ int NFC_PHY_1stWriteRoot(unsigned int _channel,
         unsigned int _page   = __NROOT(_row0&0x000000FF,0);
         unsigned int _block  = __NROOT(_row0&0x000F0000,8) + __NROOT(_row0&0x0000FF00,8);
 
-        __print("Write.Root.? : bytes_per_data_ecc(%d), bytes_per_data_parity(%d), data_ecc_bits(%d)\n", bytes_per_root_ecc, _bytes_per_root_parity, root_ecc_bits);
-        __print("Write.Root.0 : block(%04d), page(%04d) => row(%08d), column(%04d) .", _block, _page, _row0, _column);
+        Exchange.sys.fn.print("Write.Root.? : bytes_per_data_ecc(%d), bytes_per_data_parity(%d), data_ecc_bits(%d)\n", bytes_per_root_ecc, _bytes_per_root_parity, root_ecc_bits);
+        Exchange.sys.fn.print("Write.Root.0 : block(%04d), page(%04d) => row(%08d), column(%04d) .", _block, _page, _row0, _column);
 
         if ((int)_row1 >= 0)
         {
@@ -3538,8 +3612,8 @@ int NFC_PHY_1stWriteRoot(unsigned int _channel,
             _page   = __NROOT(_row1&0x000000FF,0);
             _block  = __NROOT(_row1&0x000F0000,8) + __NROOT(_row1&0x0000FF00,8);
 
-            __print("\n");
-            __print(".. Write.Root.1 : block(%04d), page(%04d) => row(%08d), column(%04d) .", _block, _page, _row1, _column);
+            Exchange.sys.fn.print("\n");
+            Exchange.sys.fn.print(".. Write.Root.1 : block(%04d), page(%04d) => row(%08d), column(%04d) .", _block, _page, _row1, _column);
         }
     }
 
@@ -3550,7 +3624,7 @@ int NFC_PHY_1stWriteRoot(unsigned int _channel,
     {
         if (Exchange.debug.nfc.phy.warn_prohibited_block_access)
         {
-            __print("EWS.NFC: Warnning: Write Requested \"Block %d\" Prohibited, But Allowed !!!\n", block0);
+            Exchange.sys.fn.print("EWS.NFC: Warnning: Write Requested \"Block %d\" Prohibited, But Allowed !!!\n", block0);
         }
     }
 
@@ -3611,7 +3685,7 @@ int NFC_PHY_1stWriteRoot(unsigned int _channel,
     }
     NFC_PHY_ChipSelect(channel, way, __FALSE);
 
-    if (Exchange.debug.nfc.phy.operation) { __print(".. Issue ."); }
+    if (Exchange.debug.nfc.phy.operation) { Exchange.sys.fn.print(".. Issue ."); }
 
     return 0;
 }
@@ -3686,8 +3760,8 @@ int NFC_PHY_1stWriteData(unsigned int _channel,
         unsigned int _page   = __NROOT(_row0&0x000000FF,0);
         unsigned int _block  = __NROOT(_row0&0x000F0000,8) + __NROOT(_row0&0x0000FF00,8);
 
-        __print("Write.Data.? : bytes_per_data_ecc(%d), bytes_per_data_parity(%d), data_ecc_bits(%d)\n", bytes_per_data_ecc, bytes_per_data_parity, data_ecc_bits);
-        __print("Write.Data.0 : block(%04d), page(%04d) => row(%08d), column(%04d) .", _block, _page, _row0, _column);
+        Exchange.sys.fn.print("Write.Data.? : bytes_per_data_ecc(%d), bytes_per_data_parity(%d), data_ecc_bits(%d)\n", bytes_per_data_ecc, bytes_per_data_parity, data_ecc_bits);
+        Exchange.sys.fn.print("Write.Data.0 : block(%04d), page(%04d) => row(%08d), column(%04d) .", _block, _page, _row0, _column);
 
         if (0xFFFFFFFF != _row1)
         {
@@ -3695,8 +3769,8 @@ int NFC_PHY_1stWriteData(unsigned int _channel,
             _page   = __NROOT(_row1&0x000000FF,0);
             _block  = __NROOT(_row1&0x000F0000,8) + __NROOT(_row1&0x0000FF00,8);
 
-            __print("\n");
-            __print(".. Write.Data.1 : block(%04d), page(%04d) => row(%08d), column(%04d) .", _block, _page, _row1, _column);
+            Exchange.sys.fn.print("\n");
+            Exchange.sys.fn.print(".. Write.Data.1 : block(%04d), page(%04d) => row(%08d), column(%04d) .", _block, _page, _row1, _column);
         }
     }
 
@@ -3707,7 +3781,7 @@ int NFC_PHY_1stWriteData(unsigned int _channel,
     {
         if (Exchange.debug.nfc.phy.warn_prohibited_block_access)
         {
-            __print("EWS.NFC: Warnning: Write Requested \"Block %d\" or \"Block %d\" Prohibited, But Allowed !!!\n", block0, block1);
+            Exchange.sys.fn.print("EWS.NFC: Warnning: Write Requested \"Block %d\" or \"Block %d\" Prohibited, But Allowed !!!\n", block0, block1);
         }
     }
 
@@ -3746,17 +3820,17 @@ int NFC_PHY_1stWriteData(unsigned int _channel,
             unsigned int line = 0;
             unsigned int print_size = 0;
 
-            __print("NFC_PHY_1stWriteData: calc spare parity\n");
+            Exchange.sys.fn.print("NFC_PHY_1stWriteData: calc spare parity\n");
 
             do
             {
                 for (line = 0; line < 16; line++)
                 {
-                    __print("%02x ", spare_parity_buffer[print_size++]);
+                    Exchange.sys.fn.print("%02x ", spare_parity_buffer[print_size++]);
                     if (print_size >= bytes_per_spare_parity) { break; }
                 }
 
-                __print("\n");
+                Exchange.sys.fn.print("\n");
                 if (print_size >= bytes_per_spare_parity) { break; }
 
             } while (1);
@@ -3814,12 +3888,12 @@ int NFC_PHY_1stWriteData(unsigned int _channel,
                 {
                     unsigned int i = 0;
 
-                    __print("NFC_PHY_1stWriteData: Single Plane: Data    : row(%05d), col(%05d)\n", row0, col0);
+                    Exchange.sys.fn.print("NFC_PHY_1stWriteData: Single Plane: Data    : row(%05d), col(%05d)\n", row0, col0);
 
                     for (i = 0; i < 32; i++)
                     {
-                        __print("%02x ", cur_write[i]);
-                    }   __print("\n");
+                        Exchange.sys.fn.print("%02x ", cur_write[i]);
+                    }   Exchange.sys.fn.print("\n");
                 }
 
                 col0 += bytes_per_data_ecc;
@@ -3841,12 +3915,12 @@ int NFC_PHY_1stWriteData(unsigned int _channel,
                 {
                     unsigned int i = 0;
 
-                    __print("NFC_PHY_1stWriteData: Single Plane: Parity  : row(%05d), col(%05d): ", row0, col0);
+                    Exchange.sys.fn.print("NFC_PHY_1stWriteData: Single Plane: Parity  : row(%05d), col(%05d): ", row0, col0);
 
                     for (i = 0; i < bytes_per_data_parity; i++)
                     {
-                        __print("%02x ", data_parity_buffer[i]);
-                    }   __print("\n");
+                        Exchange.sys.fn.print("%02x ", data_parity_buffer[i]);
+                    }   Exchange.sys.fn.print("\n");
                 }
 
                 col0 += bytes_per_data_parity;
@@ -3944,12 +4018,12 @@ int NFC_PHY_1stWriteData(unsigned int _channel,
                 {
                     unsigned int i = 0;
 
-                    __print("NFC_PHY_1stWriteData: Plane0: Data    : row(%05d), col(%05d)\n", row0, col0);
+                    Exchange.sys.fn.print("NFC_PHY_1stWriteData: Plane0: Data    : row(%05d), col(%05d)\n", row0, col0);
 
                     for (i = 0; i < 32; i++)
                     {
-                        __print("%02x ", cur_write[i]);
-                    }   __print("\n");
+                        Exchange.sys.fn.print("%02x ", cur_write[i]);
+                    }   Exchange.sys.fn.print("\n");
                 }
 
                 col0 += bytes_per_data_ecc;
@@ -3971,12 +4045,12 @@ int NFC_PHY_1stWriteData(unsigned int _channel,
                 {
                     unsigned int i = 0;
 
-                    __print("NFC_PHY_1stWriteData: Plane0: Parity  : row(%05d), col(%05d): ", row0, col0);
+                    Exchange.sys.fn.print("NFC_PHY_1stWriteData: Plane0: Parity  : row(%05d), col(%05d): ", row0, col0);
 
                     for (i = 0; i < bytes_per_data_parity; i++)
                     {
-                        __print("%02x ", data_parity_buffer[i]);
-                    }   __print("\n");
+                        Exchange.sys.fn.print("%02x ", data_parity_buffer[i]);
+                    }   Exchange.sys.fn.print("\n");
                 }
 
                 col0 += bytes_per_data_parity;
@@ -4065,12 +4139,12 @@ int NFC_PHY_1stWriteData(unsigned int _channel,
                 {
                     unsigned int i = 0;
 
-                    __print("NFC_PHY_1stWriteData: Plane1: Data    : row(%05d), col(%05d)\n", row1, col1);
+                    Exchange.sys.fn.print("NFC_PHY_1stWriteData: Plane1: Data    : row(%05d), col(%05d)\n", row1, col1);
 
                     for (i = 0; i < 32; i++)
                     {
-                        __print("%02x ", cur_write[i]);
-                    }   __print("\n");
+                        Exchange.sys.fn.print("%02x ", cur_write[i]);
+                    }   Exchange.sys.fn.print("\n");
                 }
 
                 col1 += bytes_per_data_ecc;
@@ -4092,12 +4166,12 @@ int NFC_PHY_1stWriteData(unsigned int _channel,
                 {
                     unsigned int i = 0;
 
-                    __print("NFC_PHY_1stWriteData: Plane1: Parity  : row(%05d), col(%05d): ", row1, col1);
+                    Exchange.sys.fn.print("NFC_PHY_1stWriteData: Plane1: Parity  : row(%05d), col(%05d): ", row1, col1);
 
                     for (i = 0; i < bytes_per_data_parity; i++)
                     {
-                        __print("%02x ", data_parity_buffer[i]);
-                    }   __print("\n");
+                        Exchange.sys.fn.print("%02x ", data_parity_buffer[i]);
+                    }   Exchange.sys.fn.print("\n");
                 }
 
                 col1 += bytes_per_data_parity;
@@ -4150,7 +4224,7 @@ int NFC_PHY_1stWriteData(unsigned int _channel,
     }
     NFC_PHY_ChipSelect(channel, way, __FALSE);
 
-    if (Exchange.debug.nfc.phy.operation) { __print(".. Issue ."); }
+    if (Exchange.debug.nfc.phy.operation) { Exchange.sys.fn.print(".. Issue ."); }
 
     return 0;
 }
@@ -4269,7 +4343,7 @@ unsigned char NFC_PHY_3rdWrite(unsigned int _channel, unsigned int _way)
     {
         if (NFC_PHY_StatusIsRDY(status))
         {
-            __print(".. Done\n");
+            Exchange.sys.fn.print(".. Done\n");
         }
     }
 
@@ -4302,15 +4376,15 @@ int NFC_PHY_1stErase(unsigned int _channel,
         unsigned int _page  = __NROOT(_row0&0x000000FF,0);
         unsigned int _block = __NROOT(_row0&0x000F0000,8) + __NROOT(_row0&0x0000FF00,8);
 
-        __print("Erase.0      : block(%04d), page(%04d) => row(%08d)               .", _block, _page, _row0);
+        Exchange.sys.fn.print("Erase.0      : block(%04d), page(%04d) => row(%08d)               .", _block, _page, _row0);
 
         if ((int)_row1 >= 0)
         {
             _page   = __NROOT(_row1&0x000000FF,0);
             _block  = __NROOT(_row1&0x000F0000,8) + __NROOT(_row1&0x0000FF00,8);
 
-            __print("\n");
-            __print("Erase.1      : block(%04d), page(%04d) => row(%08d)               .", _block, _page, _row1);
+            Exchange.sys.fn.print("\n");
+            Exchange.sys.fn.print("Erase.1      : block(%04d), page(%04d) => row(%08d)               .", _block, _page, _row1);
         }
     }
 
@@ -4321,7 +4395,7 @@ int NFC_PHY_1stErase(unsigned int _channel,
     {
         if (Exchange.debug.nfc.phy.warn_prohibited_block_access)
         {
-            __print("EWS.NFC: Warnning: Erase Requested \"Block %d\" or \"Block %d\" Prohibited, But Allowed !!!\n", block0, block1);
+            Exchange.sys.fn.print("EWS.NFC: Warnning: Erase Requested \"Block %d\" or \"Block %d\" Prohibited, But Allowed !!!\n", block0, block1);
         }
     }
 
@@ -4394,7 +4468,7 @@ int NFC_PHY_1stErase(unsigned int _channel,
     }
     NFC_PHY_ChipSelect(channel, way, __FALSE);
 
-    if (Exchange.debug.nfc.phy.operation) { __print(".. Issue ."); }
+    if (Exchange.debug.nfc.phy.operation) { Exchange.sys.fn.print(".. Issue ."); }
 
     return 0;
 }
@@ -4431,7 +4505,7 @@ unsigned char NFC_PHY_3rdErase(unsigned int _channel, unsigned int _way)
     {
         if (NFC_PHY_StatusIsRDY(status))
         {
-            __print(".. Done (%x)\n", status);
+            Exchange.sys.fn.print(".. Done (%x)\n", status);
         }
     }
 

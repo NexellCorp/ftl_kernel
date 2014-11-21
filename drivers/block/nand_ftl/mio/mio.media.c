@@ -42,11 +42,11 @@ static u8 * media_on_ram;
 /******************************************************************************
  *
  ******************************************************************************/
-void media_indicator_init(void);
-void media_indicator_busy0(void);
-void media_indicator_idle0(void);
-void media_indicator_busy1(void);
-void media_indicator_idle1(void);
+void media_gpio_init(void);
+void media_gpio_c00_high(void);
+void media_gpio_c00_low(void);
+void media_gpio_c01_high(void);
+void media_gpio_c01_low(void);
 
 /******************************************************************************
  *
@@ -68,48 +68,26 @@ int media_open(void)
     }
 
 #elif defined (__MEDIA_ON_NAND__)
+    printk(KERN_INFO "MIO.MEDIA: Open Begin\n");
+
     /**************************************************************************
-     * FTL Need Leaner Buffer, Do Not Use kmalloc(...)
+     * MIO Exchange Init
      **************************************************************************/
-    DBG_MEDIA(KERN_INFO "media_open: Memory Pool Pre Alloc:\n");
-    Exchange.buffer.mpool_size  = 0;
-    Exchange.buffer.mpool_size += 1 * 4 * (4<<20); // 1CH x 4WAY x 4MB (Page Map Table per Lun)
-    Exchange.buffer.mpool_size += 1 * 4 * (1<<20); // 1CH x 4WAY x 1MB (Update Map Table per Lun)
-    Exchange.buffer.mpool_size += (1<<20);         // 1MB (Misc)
-    Exchange.buffer.mpool = (unsigned char *)vmalloc(Exchange.buffer.mpool_size);
-
-    if (!Exchange.buffer.mpool)
-    {
-        DBG_MEDIA(KERN_INFO "media_open: Memory Pool Pre Alloc: fail\n");
-        return -1;
-    }
-
-    DBG_MEDIA(KERN_INFO "media_open: EXCHANGE_init:\n");
+    if (Exchange.debug.misc.media_open) { printk(KERN_INFO "MIO.MEDIA: EXCHANGE_init()\n"); }
     EXCHANGE_init();
-
-    /**************************************************************************
-     * MIO Sys Options
-     **************************************************************************/
-    Exchange.sys.gpio.io_req = 32*2+0;  // Asign GPIOC.00
-    Exchange.sys.gpio.bg_job = 32*2+1;  // Asign GPIOC.01
-    Exchange.sys.gpio.nfc_wp = 32*2+27; // Asign GPIOC.27
-
-    Exchange.sys.support_list.led_indicator = 1;
-    Exchange.sys.support_list.spor = 1;
-
-    Exchange.sys.fn.IndicatorReqBusy = media_indicator_busy0;
-    Exchange.sys.fn.IndicatorReqIdle = media_indicator_idle0;
-    Exchange.sys.fn.IndicatorNfcBusy = media_indicator_busy1;
-    Exchange.sys.fn.IndicatorNfcIdle = media_indicator_idle1;
-
-    media_indicator_init();
 
     /**************************************************************************
      * MIO Debug Options
      **************************************************************************/
-  //Exchange.debug.misc.block = 1;
+  //Exchange.debug.misc.block_thread = 1;
+  //Exchange.debug.misc.block_transaction = 1;
   //Exchange.debug.misc.block_background = 1;
-  //Exchange.debug.misc.media = 1;
+  //Exchange.debug.misc.media_open = 1;
+  //Exchange.debug.misc.media_format = 1;
+  //Exchange.debug.misc.media_close = 1;
+    Exchange.debug.misc.smart_store = 1;
+  //Exchange.debug.misc.uboot_format = 1;
+  //Exchange.debug.misc.uboot_init = 1;
 
     Exchange.debug.ftl.format = 1;
     Exchange.debug.ftl.format_progress = 1;
@@ -118,45 +96,106 @@ int media_open(void)
     Exchange.debug.ftl.memory_usage = 1;
     Exchange.debug.ftl.boot = 1;
     Exchange.debug.ftl.block_summary = 1;
+    Exchange.debug.ftl.warn = 1;
     Exchange.debug.ftl.error = 1;
-  //Exchange.debug.ftl.boot_read_retry = 1;
-  //Exchange.debug.ftl.read_retry = 1;
 
   //Exchange.debug.nfc.sche.operation = 1;
 
   //Exchange.debug.nfc.phy.operation = 1;
-    Exchange.debug.nfc.phy.info_feature = 1;
+  //Exchange.debug.nfc.phy.info_feature = 1;
   //Exchange.debug.nfc.phy.info_ecc = 1;
   //Exchange.debug.nfc.phy.info_ecc_correction = 1;
   //Exchange.debug.nfc.phy.info_ecc_corrected = 1;
+  //Exchange.debug.nfc.phy.info_randomizer = 1;
+  //Exchange.debug.nfc.phy.info_readretry = 1;
+  //Exchange.debug.nfc.phy.info_readretry_table = 1;
+  //Exchange.debug.nfc.phy.info_readretry_otp_table = 1;
     Exchange.debug.nfc.phy.warn_prohibited_block_access = 1;
   //Exchange.debug.nfc.phy.warn_ecc_uncorrectable = 1;
   //Exchange.debug.nfc.phy.warn_ecc_uncorrectable_show = 1;
     Exchange.debug.nfc.phy.err_ecc_uncorrectable = 1;
 
     /**************************************************************************
-     * Intial EWS FTL
+     * FTL Need Leaner Buffer, Do Not Use kmalloc(...)
      **************************************************************************/
-#if defined (__COMPILE_MODE_FORMAT__)
-    DBG_MEDIA(KERN_INFO "media_open: Exchange.ftl.fnFormat()\n");
-    Exchange.ftl.fnFormat("NXP4330", 0xF0067000, 0);
-#endif
+    if (Exchange.debug.misc.media_open) { Exchange.sys.fn.print("MIO.MEDIA: Memory Pool Pre-Allocation\n"); }
 
-    DBG_MEDIA(KERN_INFO "media_open: Exchange.ftl.fnOpen()\n");
-    if (Exchange.ftl.fnOpen("NXP4330", 0xF0067000, 0) < 0)
+    Exchange.buffer.mpool_size  = 0;
+    Exchange.buffer.mpool_size += 1 * 4 * (4<<20); // 1CH x 4WAY x 4MB (Page Map Table per Lun)
+    Exchange.buffer.mpool_size += 1 * 4 * (1<<20); // 1CH x 4WAY x 1MB (Update Map Table per Lun)
+    Exchange.buffer.mpool_size += (1<<20);         // 1MB (Misc)
+    Exchange.buffer.mpool = (unsigned char *)vmalloc(Exchange.buffer.mpool_size);
+
+    if (!Exchange.buffer.mpool)
     {
-        DBG_MEDIA(KERN_INFO "media_open: Exchange.ftl.fnOpen(): fail\n");
+        printk(KERN_ERR "MIO.MEDIA: Memory Pool Pre-Allocation Fail\n");
         return -1;
     }
 
-    DBG_MEDIA(KERN_INFO "media_open: Exchange.ftl.fnBoot(0)\n");
+    /**************************************************************************
+     * MIO Sys Options
+     **************************************************************************/
+    Exchange.sys.gpio.c_00 = 32*2+0;  // Asign GPIOC.00
+    Exchange.sys.gpio.c_01 = 32*2+1;  // Asign GPIOC.01
+    Exchange.sys.gpio.c_27 = 32*2+27; // Asign GPIOC.27
+
+    Exchange.sys.support_list.spor = 1;
+    Exchange.sys.support_list.led_indicator = 0;
+    Exchange.sys.support_list.gpio_debug = 1;
+
+    if ((Exchange.sys.support_list.led_indicator && Exchange.sys.support_list.gpio_debug) || (!Exchange.sys.support_list.led_indicator && !Exchange.sys.support_list.gpio_debug))
+    {
+        // Conflict or Disabled
+    }
+    else
+    {
+        if (Exchange.sys.support_list.led_indicator)
+        {
+            Exchange.sys.fn.LedReqBusy = media_gpio_c00_high;
+            Exchange.sys.fn.LedReqIdle = media_gpio_c00_low;
+            Exchange.sys.fn.LedNfcBusy = media_gpio_c01_high;
+            Exchange.sys.fn.LedNfcIdle = media_gpio_c01_low;
+        }
+        else if (Exchange.sys.support_list.gpio_debug)
+        {
+            Exchange.sys.fn.GpioC00High = media_gpio_c00_high;
+            Exchange.sys.fn.GpioC00Low  = media_gpio_c00_low;
+            Exchange.sys.fn.GpioC01High = media_gpio_c01_high;
+            Exchange.sys.fn.GpioC01Low  = media_gpio_c01_low;
+        }
+
+        media_gpio_init();
+    }
+
+    /**************************************************************************
+     * Intial EWS FTL
+     **************************************************************************/
+#if defined (__COMPILE_MODE_FORMAT__)
+    if (Exchange.debug.misc.media_format) { Exchange.sys.fn.print("MIO.MEDIA: Exchange.ftl.fnFormat()\n"); }
+    if (Exchange.ftl.fnFormat("NXP4330", 0xF0067000, 0) < 0)
+    {
+        printk(KERN_ERR "MIO.MEDIA: Exchange.ftl.fnFormat() Fail\n");
+        return -1;
+    }
+#endif
+
+    if (Exchange.debug.misc.media_open) { Exchange.sys.fn.print("MIO.MEDIA: Exchange.ftl.fnOpen()\n"); }
+    if (Exchange.ftl.fnOpen("NXP4330", 0xF0067000, 0) < 0)
+    {
+        printk(KERN_ERR "MIO.MEDIA: Exchange.ftl.fnOpen() Fail\n");
+        return -1;
+    }
+
+    if (Exchange.debug.misc.media_open) { Exchange.sys.fn.print("MIO.MEDIA: Exchange.ftl.fnBoot()\n"); }
     if (Exchange.ftl.fnBoot(0) < 0)
     {
-        DBG_MEDIA(KERN_INFO "media_open: Exchange.ftl.fnBoot(0): fail\n");
+        printk(KERN_ERR "MIO.MEDIA: Exchange.ftl.fnBoot() Fail\n");
         return -1;
     }
 
     capacity = *Exchange.ftl.Capacity;
+
+    printk(KERN_INFO "MIO.MEDIA: Open End\n");
 
 #endif
 
@@ -168,17 +207,17 @@ int media_open(void)
  ******************************************************************************/
 void media_close(void)
 {
-    printk(KERN_INFO "media_close: Start\n");
-
 #if defined (__MEDIA_ON_RAM__)
     vfree(media_on_ram);
 #elif defined (__MEDIA_ON_NAND__)
-    DBG_MEDIA(KERN_INFO "media_close: Exchange.ftl.fnClose:\n");
+    printk(KERN_INFO "MIO.MEDIA: Close Begin\n");
+
+    if (Exchange.debug.misc.media_close) { Exchange.sys.fn.print("MIO.MEDIA: Exchange.ftl.fnClose()\n"); }
     Exchange.ftl.fnClose();
     vfree(Exchange.buffer.mpool);
-#endif
 
-    printk(KERN_INFO "media_close: Done\n");
+    printk(KERN_INFO "MIO.MEDIA: Close End\n");
+#endif
 }
 
 /******************************************************************************
@@ -599,28 +638,28 @@ extern int /* -1 = invalid gpio, 0 = gpio's input mode, 1 = gpio's output mode. 
 extern void nxp_soc_gpio_set_io_dir(unsigned int /* gpio pad number, 32*n + bit (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)*/, int /* '1' is output mode, '0' is input mode */);
 extern void nxp_soc_gpio_set_out_value(unsigned int /* gpio pad number, 32*n + bit (n= GPIO_A:0, GPIO_B:1, GPIO_C:2, GPIO_D:3, GPIO_E:4, ALIVE:5, bit= 0 ~ 32)*/, int /* '1' is high level, '0' is low level */);
 
-void media_indicator_init(void)
+void media_gpio_init(void)
 {
-    nxp_soc_gpio_set_io_dir(Exchange.sys.gpio.io_req, 1);
-    nxp_soc_gpio_set_io_dir(Exchange.sys.gpio.bg_job, 1);
+    nxp_soc_gpio_set_io_dir(Exchange.sys.gpio.c_00, 1);
+    nxp_soc_gpio_set_io_dir(Exchange.sys.gpio.c_01, 1);
 }
 
-void media_indicator_busy0(void)
+void media_gpio_c00_high(void)
 {
-    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.io_req, 1);
+    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.c_00, 1);
 }
 
-void media_indicator_idle0(void)
+void media_gpio_c00_low(void)
 {
-    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.io_req, 0);
+    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.c_00, 0);
 }
 
-void media_indicator_busy1(void)
+void media_gpio_c01_high(void)
 {
-    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.bg_job, 1);
+    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.c_01, 1);
 }
 
-void media_indicator_idle1(void)
+void media_gpio_c01_low(void)
 {
-    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.bg_job, 0);
+    nxp_soc_gpio_set_out_value(Exchange.sys.gpio.c_01, 0);
 }

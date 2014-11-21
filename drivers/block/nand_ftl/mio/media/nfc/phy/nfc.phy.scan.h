@@ -22,8 +22,8 @@
 /******************************************************************************
  *
  ******************************************************************************/
-NFC_PHY_SCAN_EXT unsigned int NFC_PHY_ScanSec(unsigned char * _id, unsigned char * _onfi_id, unsigned int _scan_format);
-NFC_PHY_SCAN_EXT unsigned int NFC_PHY_ScanToshiba(unsigned char * _id, unsigned char * _onfi_id, unsigned int _scan_format);
+NFC_PHY_SCAN_EXT unsigned int NFC_PHY_ScanSec(unsigned char * _id, unsigned char * _jedec_id, unsigned int _scan_format);
+NFC_PHY_SCAN_EXT unsigned int NFC_PHY_ScanToshiba(unsigned char * _id, unsigned char * _jedec_id, unsigned int _scan_format);
 NFC_PHY_SCAN_EXT unsigned int NFC_PHY_ScanMicron(unsigned char * _id, unsigned char * _onfi_id, unsigned int _scan_format);
 NFC_PHY_SCAN_EXT unsigned int NFC_PHY_ScanSkhynix(unsigned char * _id, unsigned char * _onfi_id, unsigned int _scan_format);
 NFC_PHY_SCAN_EXT unsigned int NFC_PHY_ScanIntel(unsigned char * _id, unsigned char * _onfi_id, unsigned int _scan_format);

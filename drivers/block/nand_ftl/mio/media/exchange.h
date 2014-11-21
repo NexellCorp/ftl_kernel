@@ -149,6 +149,7 @@ typedef union __NAND__
 #define NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE    (10)
 #define NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE   (11)
 #define NAND_READRETRY_TYPE_HYNIX_1xNM_MLC          (20)
+#define NAND_READRETRY_TYPE_TOSHIBA_A19NM           (40)
             unsigned char read_retry;
 
             unsigned char _rsvd0[6];
@@ -454,7 +455,7 @@ typedef struct __ExNFC__
 
     void (*fnDelay)(unsigned int _tDelay);
 
-    int (*fnReadId)(unsigned int _channel, unsigned int _way, char * _id, char * _onfi_id);
+    int (*fnReadId)(unsigned int _channel, unsigned int _way, char * _id, char * _onfi_id, char * _jedec_id);
 
     void (*fnSetOnfiFeature)(unsigned int _channel, unsigned int _way, unsigned char _feature_address, unsigned int _parameter);
     void (*fnGetOnfiFeature)(unsigned int _channel, unsigned int _way, unsigned char _feature_address, unsigned int * _parameter);
@@ -490,7 +491,9 @@ typedef struct __ExNFC__
     int  (*fnReadRetry_GetTotalReadRetryCount)(unsigned int _channel, unsigned int _way);
     void *(*fnReadRetry_GetAddress)(void);
     void *(*fnReadRetry_GetRegDataAddress)(unsigned int _channel, unsigned int _way);
+    void (*fnReadRetry_ClearAllCurrReadRetryCount)(void);
     void (*fnReadRetry_PrintTable)(void);
+    void (*fnReadRetry_Post)(unsigned int _channel, unsigned int _way);
 
     int (*fnRandomize_Init)(int _buf_size);
     void (*fnRandomize_DeInit)(void);
@@ -538,9 +541,9 @@ typedef struct __ExSYS__
 {
     struct
     {
-        unsigned int io_req;
-        unsigned int bg_job;
-        unsigned int nfc_wp;
+        unsigned int c_00;  // Flexible : LED Indicator (IO Request Busy/Idle) or Trigger
+        unsigned int c_01;  // Flexible : LED Indicator (NF Controller Busy/Idle) or Trigger
+        unsigned int c_27;  // Fixed    : NFC Write Protect
 
     } gpio;
 
@@ -548,8 +551,9 @@ typedef struct __ExSYS__
     {
         unsigned int spor          : 1;
         unsigned int led_indicator : 1;
+        unsigned int gpio_debug    : 1;
 
-        unsigned int _rsvd0        : 32 -2;
+        unsigned int _rsvd0        : 32 - 3;
 
     } support_list;
 
@@ -564,11 +568,17 @@ typedef struct __ExSYS__
         void (*usleep)(unsigned long, unsigned long);
         void (*msleep)(unsigned int);
 
-        // Indicator
-        void (*IndicatorReqBusy)(void);
-        void (*IndicatorReqIdle)(void);
-        void (*IndicatorNfcBusy)(void);
-        void (*IndicatorNfcIdle)(void);
+        // Indicator : Depends On support_list.led_indicator
+        void (*LedReqBusy)(void);
+        void (*LedReqIdle)(void);
+        void (*LedNfcBusy)(void);
+        void (*LedNfcIdle)(void);
+
+        // GPIO Debug : Depends On support_list.gpio_debug
+        void (*GpioC00High)(void);
+        void (*GpioC00Low)(void);
+        void (*GpioC01High)(void);
+        void (*GpioC01Low)(void);
 
         // Misc
         unsigned long long (*div64)(unsigned long long _dividend, unsigned long long _divisor);
@@ -592,22 +602,24 @@ typedef struct __ExDEBUG__
 {
     struct
     {
-        unsigned int block            : 1;
-        unsigned int block_background : 1;
-        unsigned int media            : 1;
+        unsigned int block_thread      : 1;
+        unsigned int block_transaction : 1;
+        unsigned int block_background  : 1;
+        unsigned int _rsvd0            : 8 - 3;
 
-        unsigned int _rsvd0           : 32 - 3;
+        unsigned int media_open   : 1;
+        unsigned int media_format : 1;
+        unsigned int media_close  : 1;
+        unsigned int _rsvd1       : 8 - 3;
+
+        unsigned int smart_store : 1;
+        unsigned int _rsvd2      : 8 - 1;
+
+        unsigned int uboot_format : 1;
+        unsigned int uboot_init   : 1;
+        unsigned int _rsvd3       : 8;
 
     } misc;
-
-    struct
-    {
-        unsigned int cp_data;
-        unsigned int cp_size;
-
-        unsigned char pattern[8192];
-
-    } misc_sub;
 
     struct
     {
@@ -617,14 +629,13 @@ typedef struct __ExDEBUG__
         unsigned int open            : 1;
         unsigned int memory_usage    : 1;
         unsigned int boot            : 1;
-        unsigned int boot_read_retry : 1;
-        unsigned int read_retry      : 1;
         unsigned int block_summary   : 1;
-        unsigned int _rsvd0          : 16 - 8;
+        unsigned int _rsvd0          : 16 - 7;
 
         // Error, Warnning
+        unsigned int warn   : 1;
         unsigned int error  : 1;
-        unsigned int _rsvd1 : 16 - 1;
+        unsigned int _rsvd1 : 16 - 2;
 
     } ftl;
 
@@ -642,23 +653,22 @@ typedef struct __ExDEBUG__
             unsigned int operation : 1;
             unsigned int _rsvd0    : 8 - 1;
 
-            unsigned int read_data  : 1;
-            unsigned int write_data : 1;
-            unsigned int _rsvd1     : 8 - 2;
-
-            unsigned int info_feature        : 1;
-            unsigned int info_ecc            : 1;
-            unsigned int info_ecc_correction : 1;
-            unsigned int info_ecc_corrected  : 1;
-            unsigned int info_randomizer     : 1;
-            unsigned int _rsvd2              : 8 - 5;
+            unsigned int info_feature             : 1;
+            unsigned int info_ecc                 : 1;
+            unsigned int info_ecc_correction      : 1;
+            unsigned int info_ecc_corrected       : 1;
+            unsigned int info_randomizer          : 1;
+            unsigned int info_readretry           : 1;
+            unsigned int info_readretry_table     : 1;
+            unsigned int info_readretry_otp_table : 1;
+            unsigned int _rsvd1                   : 16 - 8;
 
             // Error, Warnning
             unsigned int warn_prohibited_block_access : 1;
             unsigned int warn_ecc_uncorrectable       : 1;
             unsigned int warn_ecc_uncorrectable_show  : 1;
             unsigned int err_ecc_uncorrectable        : 1;
-            unsigned int _rsvd3                       : 8 - 4;
+            unsigned int _rsvd2                       : 8 - 4;
 
         } phy;
 

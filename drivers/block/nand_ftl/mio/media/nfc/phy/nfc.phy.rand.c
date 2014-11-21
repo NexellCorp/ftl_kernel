@@ -68,11 +68,6 @@
 #endif
 
 /******************************************************************************
- *
- ******************************************************************************/
-extern int (*__print)(const char *, ...);
-
-/******************************************************************************
  * local
  ******************************************************************************/
 static struct
@@ -184,7 +179,7 @@ void NFC_PHY_RAND_DeInit(void)
 
 void NFC_PHY_RAND_Enable(unsigned char _enable)
 {
-    if (Exchange.debug.nfc.phy.info_randomizer) { __print("NFC_PHY_RAND_Enable: %d \n", _enable); }
+    if (Exchange.debug.nfc.phy.info_randomizer) { Exchange.sys.fn.print("NFC_PHY_RAND_Enable: %d \n", _enable); }
     randomizer.enable = (_enable)? 1: 0;
 }
 
@@ -211,7 +206,7 @@ void * NFC_PHY_RAND_Randomize(void *_buf, int _buf_size, unsigned char keep)
 
     if (!rand_buf || (size > randomizer.buf_size))
     {
-        if (Exchange.debug.nfc.phy.info_randomizer) { __print("NFC_PHY_RAND_Randomize: error: rand_buf:0x%08x, size:%d\n", (unsigned int)rand_buf, size); }
+        if (Exchange.debug.nfc.phy.info_randomizer) { Exchange.sys.fn.print("NFC_PHY_RAND_Randomize: error: rand_buf:0x%08x, size:%d\n", (unsigned int)rand_buf, size); }
 
         return (void *)rand_buf;
     }
@@ -227,9 +222,9 @@ void * NFC_PHY_RAND_Randomize(void *_buf, int _buf_size, unsigned char keep)
         auto_disable = 1;
     }
 
-    if (Exchange.debug.nfc.phy.info_randomizer) { __print("NFC_PHY_RAND_Randomize: Pg:%d, size:%5d, Src : %08x, %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x \n", randomizer.curr_page, size, (unsigned int)rand_buf, rand_buf[0], rand_buf[1], rand_buf[2], rand_buf[3], rand_buf[4], rand_buf[5], rand_buf[6], rand_buf[7], rand_buf[8], rand_buf[9], rand_buf[10], rand_buf[11], rand_buf[12], rand_buf[13], rand_buf[14], rand_buf[15]); }
+    if (Exchange.debug.nfc.phy.info_randomizer) { Exchange.sys.fn.print("NFC_PHY_RAND_Randomize: Pg:%d, size:%5d, Src : %08x, %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x \n", randomizer.curr_page, size, (unsigned int)rand_buf, rand_buf[0], rand_buf[1], rand_buf[2], rand_buf[3], rand_buf[4], rand_buf[5], rand_buf[6], rand_buf[7], rand_buf[8], rand_buf[9], rand_buf[10], rand_buf[11], rand_buf[12], rand_buf[13], rand_buf[14], rand_buf[15]); }
     randomizer_page(randomizer.curr_page, rand_buf, size, auto_disable);
-    if (Exchange.debug.nfc.phy.info_randomizer) { __print("NFC_PHY_RAND_Randomize: Pg:%d, size:%5d, Dest: %08x, %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x \n", randomizer.curr_page, size, (unsigned int)rand_buf, rand_buf[0], rand_buf[1], rand_buf[2], rand_buf[3], rand_buf[4], rand_buf[5], rand_buf[6], rand_buf[7], rand_buf[8], rand_buf[9], rand_buf[10], rand_buf[11], rand_buf[12], rand_buf[13], rand_buf[14], rand_buf[15]); }
+    if (Exchange.debug.nfc.phy.info_randomizer) { Exchange.sys.fn.print("NFC_PHY_RAND_Randomize: Pg:%d, size:%5d, Dest: %08x, %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x \n", randomizer.curr_page, size, (unsigned int)rand_buf, rand_buf[0], rand_buf[1], rand_buf[2], rand_buf[3], rand_buf[4], rand_buf[5], rand_buf[6], rand_buf[7], rand_buf[8], rand_buf[9], rand_buf[10], rand_buf[11], rand_buf[12], rand_buf[13], rand_buf[14], rand_buf[15]); }
 
     return (void *)rand_buf;
 }

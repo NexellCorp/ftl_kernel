@@ -72,9 +72,108 @@
 
 /******************************************************************************
  *
+ * THE FOLLOWINGS ARE ONLY FOR MICRON NAND.
+ *
  ******************************************************************************/
-//#define DBG_PHY_READRETRY(fmt, args...) __PRINT(fmt, ##args)
-#define DBG_PHY_READRETRY(fmt, args...)
+
+/******************************************************************************
+ * local
+ ******************************************************************************/
+static int NFC_PHY_MICRON_READRETRY_Init(unsigned int _max_channels, unsigned int _max_ways, const unsigned char *_way_map, unsigned char _readretry_type);
+static void NFC_PHY_MICRON_READRETRY_DeInit(void);
+static int NFC_PHY_MICRON_READRETRY_GetTotalReadRetryCount(void);
+static void NFC_PHY_MICRON_READRETRY_SetParameter(unsigned int _channel, unsigned int _phyway);
+static void NFC_PHY_MICRON_READRETRY_Post(unsigned int _channel, unsigned int _phyway);
+
+/******************************************************************************
+ * local functions
+ ******************************************************************************/
+int NFC_PHY_MICRON_READRETRY_Init(unsigned int _max_channels, unsigned int _max_ways, const unsigned char *_way_map, unsigned char _readretry_type)
+{
+    int resp = 0;
+    unsigned int max_ways = _max_ways;
+    unsigned int size=0;
+    unsigned int i=0;
+
+    NFC_PHY_MICRON_READRETRY_DeInit();
+
+    size = sizeof(NAND_MICRON_READRETRY);
+#if defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__)
+    micron_readretry = (NAND_MICRON_READRETRY *)vmalloc(size);
+#elif defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
+    micron_readretry = (NAND_MICRON_READRETRY *)malloc(size);
+#endif
+
+    micron_readretry->readretry_type = _readretry_type;
+
+    for (i=0; i < max_ways; i++)
+    {
+        micron_readretry->phyway_map[i] = (_way_map)? _way_map[i]: 0;
+    }
+
+    // init
+    micron_readretry->total_readretry_cnt = 8;
+
+    return resp;
+}
+
+void NFC_PHY_MICRON_READRETRY_DeInit(void)
+{
+    if (micron_readretry)
+    {
+#if defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__)
+        vfree(micron_readretry);
+#elif defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
+        free(micron_readretry);
+#endif
+    }
+    micron_readretry = 0;
+}
+
+int NFC_PHY_MICRON_READRETRY_GetTotalReadRetryCount(void)
+{
+    return micron_readretry->total_readretry_cnt;
+}
+
+void NFC_PHY_MICRON_READRETRY_SetParameter(unsigned int _channel, unsigned int _phyway)
+{
+    unsigned int retry_opt=0;
+    unsigned int phyway = _phyway;
+    unsigned int channel=0, way=0;
+
+    while(micron_readretry->phyway_map[way] != phyway)
+    {
+        way += 1;
+    }
+
+    micron_readretry->curr_readretry_cnt[way][channel]++;
+    retry_opt = (unsigned int)(micron_readretry->curr_readretry_cnt[way][channel] & 0x07);
+
+    if (retry_opt == 0x3) { retry_opt = 0x04; }
+
+    NFC_PHY_SetOnfiFeature(channel, phyway, 0x89, retry_opt);
+}
+
+void NFC_PHY_MICRON_READRETRY_Post(unsigned int _channel, unsigned int _phyway)
+{
+    unsigned int phyway = _phyway;
+    unsigned int channel=0, way=0;
+
+    while(micron_readretry->phyway_map[way] != phyway)
+    {
+        way += 1;
+    }
+
+    NFC_PHY_SetOnfiFeature(channel, phyway, 0x89, 0);
+    micron_readretry->curr_readretry_cnt[way][channel] = 0;
+}
+
+
+/******************************************************************************
+ *
+ * THE FOLLOWINGS ARE ONLY FOR HYNIX NAND.
+ *
+ ******************************************************************************/
 
 /******************************************************************************
  * local
@@ -87,6 +186,12 @@ static int NFC_PHY_HYNIX_READRETRY_MakeReg(unsigned int _channel, unsigned int _
 static void NFC_PHY_HYNIX_READRETRY_MajorityVote(void *_destbuf, void *_srcbuf, unsigned int entry_size, unsigned int entry_cnt);
 static void NFC_PHY_HYNIX_READRETRY_MakeRegAddr(NAND_HYNIX_READRETRY_REG_ADDRESS *_reg_addr);
 static int NFC_PHY_HYNIX_READRETRY_MakeRegData(NAND_HYNIX_READRETRY_REG_DATA *_reg_data, void *_majority_buf, const void *_otp_buf);
+
+static int NFC_PHY_HYNIX_READRETRY_Init(unsigned int _max_channels, unsigned int _max_ways, const unsigned char *_way_map, unsigned char _readretry_type);
+static void NFC_PHY_HYNIX_READRETRY_DeInit(void);
+static void NFC_PHY_HYNIX_READRETRY_SetParameter(unsigned int _channel, unsigned int _phyway);
+static int NFC_PHY_HYNIX_READRETRY_GetTotalReadRetryCount(unsigned int _channel, unsigned int _way);
+static void NFC_PHY_HYNIX_READRETRY_PrintTable(void);
 
 /******************************************************************************
  * extern functions
@@ -101,10 +206,9 @@ int NFC_PHY_HYNIX_READRETRY_Init(unsigned int _max_channels, unsigned int _max_w
     unsigned int i=0;
 
     Exchange.nfc.fnReadRetry_MakeRegAll = NFC_PHY_HYNIX_READRETRY_MakeRegAll;
-    Exchange.nfc.fnReadRetry_SetParameter = NFC_PHY_HYNIX_READRETRY_SetParameter;
-    Exchange.nfc.fnReadRetry_GetTotalReadRetryCount = NFC_PHY_HYNIX_READRETRY_GetTotalReadRetryCount;
     Exchange.nfc.fnReadRetry_GetAddress = NFC_PHY_HYNIX_READRETRY_GetAddress;
     Exchange.nfc.fnReadRetry_GetRegDataAddress = NFC_PHY_HYNIX_READRETRY_GetRegDataAddress;
+    Exchange.nfc.fnReadRetry_ClearAllCurrReadRetryCount = NFC_PHY_HYNIX_READRETRY_ClearAllCurrReadRetryCount;
     Exchange.nfc.fnReadRetry_PrintTable = NFC_PHY_HYNIX_READRETRY_PrintTable;
 
     NFC_PHY_HYNIX_READRETRY_DeInit();
@@ -147,19 +251,17 @@ int NFC_PHY_HYNIX_READRETRY_Init(unsigned int _max_channels, unsigned int _max_w
                     hynix_readretry.reg_data[way][channel].this_size = sizeof(NAND_HYNIX_READRETRY_REG_DATA);
                     hynix_readretry.reg_data[way][channel].this_size_inverse = ~(hynix_readretry.reg_data[way][channel].this_size);
                 }
-
             }
             else
             {
-                DBG_PHY_READRETRY("NFC_PHY_HYNIX_READRETRY_Init: error! reg_data[%d]:0x%08x = malloc(%d)\n", way, (unsigned int)hynix_readretry.reg_data[way], size);
+                Exchange.sys.fn.print("NFC_PHY_HYNIX_READRETRY_Init: error! reg_data[%d]:0x%08x = malloc(%d)\n", way, (unsigned int)hynix_readretry.reg_data[way], size);
                 resp = -1;
             }
         }
-
     }
     else
     {
-        DBG_PHY_READRETRY("NFC_PHY_HYNIX_READRETRY_Init: error! reg_data:0x%08x = malloc(%d);\n", (unsigned int)hynix_readretry.reg_data, size);
+        Exchange.sys.fn.print("NFC_PHY_HYNIX_READRETRY_Init: error! reg_data:0x%08x = malloc(%d);\n", (unsigned int)hynix_readretry.reg_data, size);
         resp = -1;
     }
 
@@ -227,6 +329,24 @@ int NFC_PHY_HYNIX_READRETRY_GetTotalReadRetryCount(unsigned int _channel, unsign
     return (int)hynix_readretry.reg_data[_way][_channel].total_readretry_cnt;
 }
 
+void NFC_PHY_HYNIX_READRETRY_ClearAllCurrReadRetryCount(void)
+{
+    int channel=0, way=0;
+
+    if (!hynix_readretry.reg_data)
+    {
+        return;
+    }
+
+    for (channel=0; channel < hynix_readretry.max_channels; channel++)
+    {
+        for (way=0; way < hynix_readretry.max_ways; way++)
+        {
+            hynix_readretry.reg_data[way][channel].curr_readretry_cnt = 0;
+        }
+    }
+}
+
 int NFC_PHY_HYNIX_READRETRY_MakeRegAll(void)
 {
     int resp = -1;
@@ -261,7 +381,7 @@ void NFC_PHY_HYNIX_READRETRY_SetParameter(unsigned int _channel, unsigned int _p
 {
     unsigned int channel = _channel;
     unsigned int way=0;
-    unsigned int phyway = hynix_readretry.phyway_map[way];
+    unsigned int phyway = _phyway;
     unsigned int reg_idx = 0;
     unsigned char addr=0, data=0;
 
@@ -280,7 +400,7 @@ void NFC_PHY_HYNIX_READRETRY_SetParameter(unsigned int _channel, unsigned int _p
         reg_data->curr_readretry_cnt = 0;
     }
 
-    DBG_PHY_READRETRY(" ReadRetrySetParam(addr,data) - %08d: ", reg_data->curr_readretry_cnt);
+    if (Exchange.debug.nfc.phy.info_readretry) { Exchange.sys.fn.print(" ReadRetrySetParam(addr,data) - %08d: ", reg_data->curr_readretry_cnt); }
 
     NFC_PHY_ChipSelect(channel, phyway, __TRUE);
     {
@@ -294,13 +414,13 @@ void NFC_PHY_HYNIX_READRETRY_SetParameter(unsigned int _channel, unsigned int _p
             NFC_PHY_tDelay(NfcTime.tADL);
             NFC_PHY_WData(data);        // DATA:
 
-            DBG_PHY_READRETRY("(%02x,%02x) ", addr, data);
+            if (Exchange.debug.nfc.phy.info_readretry) { Exchange.sys.fn.print("(%02x,%02x) ", addr, data); }
         }
         NFC_PHY_Cmd(0x16);              // CMD:  0x16
     }
     NFC_PHY_ChipSelect(channel, phyway, __FALSE);
 
-    DBG_PHY_READRETRY("\n");
+    if (Exchange.debug.nfc.phy.info_readretry) { Exchange.sys.fn.print("\n"); }
 
 }
 
@@ -580,7 +700,7 @@ int NFC_PHY_HYNIX_READRETRY_MakeRegData(NAND_HYNIX_READRETRY_REG_DATA *_reg_data
         !reg_data->readretry_reg_cnt || (reg_data->readretry_reg_cnt > NAND_PHY_HYNIX_READRETRY_REG_CNT) ||
         (reg_data->readretry_reg_cnt > reg_idx))
     {
-        DBG_PHY_READRETRY("NFC_PHY_HYNIX_READRETRY_MakeRegData: error! reg_data->total_readretry_cnt:%d, reg_data->readretry_reg_cnt:%d, reg_idx:%d \n",  reg_data->total_readretry_cnt, reg_data->readretry_reg_cnt, reg_idx);
+        Exchange.sys.fn.print("NFC_PHY_HYNIX_READRETRY_MakeRegData: error! reg_data->total_readretry_cnt:%d, reg_data->readretry_reg_cnt:%d, reg_idx:%d \n",  reg_data->total_readretry_cnt, reg_data->readretry_reg_cnt, reg_idx);
 
         memset((void *)reg_data, 0x00, sizeof(*reg_data));
         reg_data->this_size = sizeof(*reg_data);
@@ -694,30 +814,31 @@ int NFC_PHY_HYNIX_READRETRY_MakeReg(unsigned int _channel, unsigned int _phyway,
 
         resp = NFC_PHY_HYNIX_READRETRY_MakeRegData(reg_data, majority_buf, otp_buf);
 
-        if (Exchange.debug.ftl.read_retry)
+        if (Exchange.debug.nfc.phy.info_readretry_otp_table)
         {
             int i=0;
 
-            DBG_PHY_READRETRY(" ##################################################\n");
-            DBG_PHY_READRETRY(" #       otp data for HYNIX READ RETRY TABLE       ");
+            Exchange.sys.fn.print(" ##################################################\n");
+            Exchange.sys.fn.print(" #       otp data for HYNIX READ RETRY TABLE       ");
 
             for (i=0; i < otp_size; i++)
             {
                 if (!(i%32))
                 {
-                    DBG_PHY_READRETRY("\n # [0x%03X]", i);
+                    Exchange.sys.fn.print("\n # [0x%03X]", i);
                 }
-                DBG_PHY_READRETRY("%02x ", otp_buf[i]);
-            }
-            DBG_PHY_READRETRY("\n");
-            DBG_PHY_READRETRY(" ##################################################\n");
+
+                Exchange.sys.fn.print("%02x ", otp_buf[i]);
+            }   Exchange.sys.fn.print("\n");
+
+            Exchange.sys.fn.print(" ##################################################\n");
         }
 
         NFC_PHY_HYNIX_READRETRY_PrintTable();
     }
     else
     {
-        DBG_PHY_READRETRY("NFC_PHY_HYNIX_READRETRY_Make: error! otp_buf:0x%08x, majority_buff:0x%08x\n", (unsigned int)otp_buf, (unsigned int)majority_buf);
+        Exchange.sys.fn.print("NFC_PHY_HYNIX_READRETRY_Make: error! otp_buf:0x%08x, majority_buff:0x%08x\n", (unsigned int)otp_buf, (unsigned int)majority_buf);
     }
 
 #if defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__)
@@ -735,47 +856,590 @@ int NFC_PHY_HYNIX_READRETRY_MakeReg(unsigned int _channel, unsigned int _phyway,
     return resp;
 }
 
-
 void NFC_PHY_HYNIX_READRETRY_PrintTable(void)
 {
-    if (Exchange.debug.ftl.boot_read_retry)
+    if (Exchange.debug.nfc.phy.info_readretry_table)
     {
-        int i = 0;
-        int j = 0;
+        int channel = 0;
+        int way = 0;
 
-        DBG_PHY_READRETRY(" ##################################################\n");
-        DBG_PHY_READRETRY(" #             HYNIX READ RETRY TABLE              \n");
-        DBG_PHY_READRETRY(" # max_channels:%d, max_ways:%d\n", hynix_readretry.max_channels, hynix_readretry.max_ways);
-        DBG_PHY_READRETRY(" # reg_addr.addr: ");
-        for (i=0; i < NAND_PHY_HYNIX_READRETRY_REG_CNT; i++)
-            DBG_PHY_READRETRY("%02x ", hynix_readretry.reg_addr.addr[i]);
-        DBG_PHY_READRETRY("\n");
+        Exchange.sys.fn.print(" ##################################################\n");
+        Exchange.sys.fn.print(" #             HYNIX READ RETRY TABLE              \n");
+        Exchange.sys.fn.print(" # max_channels:%d, max_ways:%d\n", hynix_readretry.max_channels, hynix_readretry.max_ways);
+        Exchange.sys.fn.print(" # reg_addr.addr: ");
 
-        for (i=0; i < hynix_readretry.max_channels; i++)
+        for (channel=0; channel < NAND_PHY_HYNIX_READRETRY_REG_CNT; channel++)
+            Exchange.sys.fn.print("%02x ", hynix_readretry.reg_addr.addr[channel]);
+
+        Exchange.sys.fn.print("\n");
+
+        for (channel=0; channel < hynix_readretry.max_channels; channel++)
         {
-            for (j=0; j < hynix_readretry.max_ways; j++)
+            for (way=0; way < hynix_readretry.max_ways; way++)
             {
-                NAND_HYNIX_READRETRY_REG_DATA *reg_data = &hynix_readretry.reg_data[j][i];
+                NAND_HYNIX_READRETRY_REG_DATA *reg_data = &hynix_readretry.reg_data[way][channel];
                 int m=0, n=0;
 
-                DBG_PHY_READRETRY(" #\n");
-                DBG_PHY_READRETRY(" # table of channel(%d), way(%d)\n", i, j);
-                DBG_PHY_READRETRY(" #  total_readretry_cnt:%d, readretry_reg_cnt:%d, curr_readretry_cnt:%d\n", reg_data->total_readretry_cnt, reg_data->readretry_reg_cnt, reg_data->curr_readretry_cnt);
-                DBG_PHY_READRETRY(" #           reg1 reg2 reg3 reg4 reg5 reg6 reg7 reg8 reg9 reg10\n");
+                Exchange.sys.fn.print(" #\n");
+                Exchange.sys.fn.print(" # table of channel(%d), way(%d)\n", channel, way);
+                Exchange.sys.fn.print(" #  total_readretry_cnt:%d, readretry_reg_cnt:%d, curr_readretry_cnt:%d\n", reg_data->total_readretry_cnt, reg_data->readretry_reg_cnt, reg_data->curr_readretry_cnt);
+                Exchange.sys.fn.print(" #           reg1 reg2 reg3 reg4 reg5 reg6 reg7 reg8 reg9 reg10\n");
+
                 for (m=0; m < reg_data->total_readretry_cnt; m++)
                 {
-                    DBG_PHY_READRETRY(" #  [Step%2d]", m);
+                    Exchange.sys.fn.print(" #  [Step%2d]", m);
+
                     for (n=0; n < reg_data->readretry_reg_cnt; n++)
                     {
-                        DBG_PHY_READRETRY("  %02x ", reg_data->table[m][n]);
-                    }
-                    DBG_PHY_READRETRY("\n");
+                        Exchange.sys.fn.print("  %02x ", reg_data->table[m][n]);
+                    }   Exchange.sys.fn.print("\n");
                 }
             }
         }
-        DBG_PHY_READRETRY(" ##################################################\n");
+
+        Exchange.sys.fn.print(" ##################################################\n");
     }
 }
 
 
+/******************************************************************************
+ *
+ * THE FOLLOWINGS ARE ONLY FOR TOSHIBA NAND.
+ *
+ ******************************************************************************/
 
+/******************************************************************************
+ * local
+ ******************************************************************************/
+static int NFC_PHY_TOSHIBA_READRETRY_Init(unsigned int _max_channels, unsigned int _max_ways, const unsigned char *_way_map, unsigned char _readretry_type);
+static void NFC_PHY_TOSHIBA_READRETRY_DeInit(void);
+static int NFC_PHY_TOSHIBA_READRETRY_GetTotalReadRetryCount(void);
+static void NFC_PHY_TOSHIBA_READRETRY_SetParameter(unsigned int _channel, unsigned int _phyway);
+static void NFC_PHY_TOSHIBA_READRETRY_ExitReadRetryMode(unsigned int _channel, unsigned int _phyway);
+static void NFC_PHY_TOSHIBA_READRETRY_PrintTable(void);
+
+/******************************************************************************
+ * extern functions
+ ******************************************************************************/
+int NFC_PHY_TOSHIBA_READRETRY_Init(unsigned int _max_channels, unsigned int _max_ways, const unsigned char *_way_map, unsigned char _readretry_type)
+{
+    int resp = 0;
+    unsigned int max_ways = _max_ways;
+    unsigned int size=0;
+    unsigned int way=0;
+    unsigned char param_idx=0;
+
+    Exchange.nfc.fnReadRetry_PrintTable = NFC_PHY_TOSHIBA_READRETRY_PrintTable;
+
+    NFC_PHY_TOSHIBA_READRETRY_DeInit();
+
+    size = sizeof(NAND_TOSHIBA_READRETRY);
+#if defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__)
+    toshiba_readretry = (NAND_TOSHIBA_READRETRY *)vmalloc(size);
+#elif defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
+    toshiba_readretry = (NAND_TOSHIBA_READRETRY *)malloc(size);
+#endif
+
+    toshiba_readretry->max_channels = _max_channels;
+    toshiba_readretry->max_ways = max_ways;
+    toshiba_readretry->readretry_type = _readretry_type;
+
+    for (way=0; way < max_ways; way++)
+    {
+        toshiba_readretry->phyway_map[way] = (_way_map)? _way_map[way]: 0;
+    }
+
+    if (toshiba_readretry)
+    {
+        switch (toshiba_readretry->readretry_type)
+        {
+            case 0: {} break;
+
+            case NAND_READRETRY_TYPE_TOSHIBA_A19NM:
+            {
+                unsigned char addr_a19nm[5] = { 0x04, 0x05, 0x06, 0x07, 0x0D };
+                unsigned char data_a19nm[7][5] = {{ 0x04, 0x04, 0x7C, 0x7E, 0x00 },
+                                                  { 0x00, 0x7C, 0x78, 0x78, 0x00 },
+                                                  { 0x7C, 0x76, 0x74, 0x72, 0x00 },
+                                                  { 0x08, 0x08, 0x00, 0x00, 0x00 },
+                                                  { 0x0B, 0x7E, 0x76, 0x74, 0x00 },
+                                                  { 0x10, 0x76, 0x72, 0x70, 0x00 },
+                                                  { 0x02, 0x7C, 0x7E, 0x70, 0x00 }};
+                unsigned char command_cnt[7] = { 2, 2, 2, 3, 2, 2, 2 };
+                unsigned char command_a19nm[7][3] = {{ 0x26, 0x5D, 0 },
+                                                     { 0x26, 0x5D, 0 },
+                                                     { 0x26, 0x5D, 0 },
+                                                     { 0xB3, 0x26, 0x5D },
+                                                     { 0x26, 0x5D, 0 },
+                                                     { 0x26, 0x5D, 0 },
+                                                     { 0x26, 0x5D, 0 }};
+                unsigned char exitdata_a19nm[5] = { 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+                toshiba_readretry->total_readretry_cnt = 7+1;
+
+                for (param_idx=0; param_idx < (toshiba_readretry->total_readretry_cnt - 1); param_idx++)
+                {
+                    toshiba_readretry->param[param_idx].addr_cnt = 5;
+                    toshiba_readretry->param[param_idx].command_cnt = command_cnt[param_idx];
+                    
+                    memcpy((void *)(toshiba_readretry->param[param_idx].addr), addr_a19nm, sizeof(addr_a19nm));
+                    memcpy((void *)(toshiba_readretry->param[param_idx].data), data_a19nm[param_idx], sizeof(data_a19nm[0]));
+                    memcpy((void *)(toshiba_readretry->param[param_idx].command), command_a19nm[param_idx], sizeof(command_a19nm[0]));
+                }   memcpy((void *)(toshiba_readretry->exitdata), exitdata_a19nm, sizeof(exitdata_a19nm));
+              
+            } break;
+
+            default:
+            {
+                Exchange.sys.fn.print("NFC_PHY_TOSHIBA_READRETRY_Init: error! Read Retry table is not established \n");
+                resp = -1;
+            } break;
+        }
+    }
+    else
+    {
+        Exchange.sys.fn.print("NFC_PHY_TOSHIBA_READRETRY_Init: error! reg_data:0x%08x = malloc(%d);\n", (unsigned int)toshiba_readretry, size);
+        resp = -1;
+    }
+    
+    return resp;
+}
+
+void NFC_PHY_TOSHIBA_READRETRY_DeInit(void)
+{
+    if (toshiba_readretry)
+    {
+#if defined (__BUILD_MODE_ARM_LINUX_DEVICE_DRIVER__)
+        vfree(toshiba_readretry);
+#elif defined (__BUILD_MODE_ARM_UBOOT_DEVICE_DRIVER__)
+        free(toshiba_readretry);
+#endif
+    }
+    toshiba_readretry = 0;
+}
+
+int NFC_PHY_TOSHIBA_READRETRY_GetTotalReadRetryCount(void)
+{
+    if (toshiba_readretry)
+    {
+        return toshiba_readretry->total_readretry_cnt;
+    }
+
+    return 0;
+}
+
+void NFC_PHY_TOSHIBA_READRETRY_SetParameter(unsigned int _channel, unsigned int _phyway)
+{
+    unsigned int channel = _channel;
+    unsigned int way=0;
+    unsigned int phyway = _phyway;
+    unsigned char cmd=0, addr=0, data=0;
+    unsigned char curr_readretry_cnt=0;
+    unsigned char retry_idx=0, addr_idx=0, cmd_idx=0, param_idx=0;
+
+    while(toshiba_readretry->phyway_map[way] != phyway)
+    {
+        way += 1;
+    }
+
+    curr_readretry_cnt = toshiba_readretry->curr_readretry_cnt[way][channel];
+    curr_readretry_cnt += 1;
+
+    NFC_PHY_ChipSelect(channel, phyway, __TRUE);
+    {
+        retry_idx = (curr_readretry_cnt % toshiba_readretry->total_readretry_cnt);
+
+        if (!retry_idx)
+        {
+            NFC_PHY_TOSHIBA_READRETRY_ExitReadRetryMode(channel, phyway);
+        }
+        else
+        {
+            param_idx = retry_idx - 1;
+
+            if (Exchange.debug.nfc.phy.info_readretry)
+            {
+                Exchange.sys.fn.print(" ReadRetrySetParam(addr,data)");
+                if (!param_idx) { Exchange.sys.fn.print("-Pre "); }
+                else            { Exchange.sys.fn.print("     "); }
+                Exchange.sys.fn.print(" %02d #NoP(%02d) ", curr_readretry_cnt, param_idx);
+            }
+
+            // pre-condition
+            if (!param_idx)
+            {
+                NFC_PHY_Cmd(0x5C);          // CMD:  0x5C
+                NFC_PHY_Cmd(0xC5);          // CMD:  0xC5
+                NFC_PHY_tDelay(200);        // tCALHV + tCALSV ??
+            }
+
+            // MPRMSET
+            for (addr_idx=0; addr_idx < toshiba_readretry->param[param_idx].addr_cnt; addr_idx++)
+            {
+                addr = toshiba_readretry->param[param_idx].addr[addr_idx];
+                data = toshiba_readretry->param[param_idx].data[addr_idx];
+
+                NFC_PHY_Cmd(0x55);          // CMD:  0x55
+                NFC_PHY_tDelay(200);        // tCALHV + tCALSV
+                NFC_PHY_Addr(addr);         // ADDR:
+                NFC_PHY_tDelay(200);        // tCALHV + tCALSV
+                NFC_PHY_WData(data);        // DATA:
+                NFC_PHY_tDelay(200);        // tCALHV + tCALSV
+
+                if (Exchange.debug.nfc.phy.info_readretry) { Exchange.sys.fn.print("(%02x,%02x) ", addr, data); }
+            }
+
+            // RREN
+            for (cmd_idx=0; cmd_idx < toshiba_readretry->param[param_idx].command_cnt; cmd_idx++)
+            {
+                cmd = toshiba_readretry->param[param_idx].command[cmd_idx];
+
+                NFC_PHY_Cmd(cmd);           // CMD
+
+                if (Exchange.debug.nfc.phy.info_readretry) { Exchange.sys.fn.print("[%02x] ", cmd); }
+            }
+
+            if (Exchange.debug.nfc.phy.info_readretry) { Exchange.sys.fn.print("\n"); }
+        }
+    }
+    NFC_PHY_ChipSelect(channel, phyway, __FALSE);
+
+    toshiba_readretry->curr_readretry_cnt[way][channel] = curr_readretry_cnt;
+
+}
+
+void NFC_PHY_TOSHIBA_READRETRY_ExitReadRetryMode(unsigned int _channel, unsigned int _phyway)
+{
+    unsigned int channel = _channel;
+    unsigned int way=0;
+    unsigned int phyway = _phyway;
+    unsigned char addr=0, data=0;
+    unsigned char addr_idx=0;
+
+    while(toshiba_readretry->phyway_map[way] != phyway)
+    {
+        way += 1;
+    }
+
+    if (toshiba_readretry->curr_readretry_cnt[way][channel] % toshiba_readretry->total_readretry_cnt)
+    {
+        NFC_PHY_ChipSelect(channel, phyway, __TRUE);
+        {
+            if (Exchange.debug.nfc.phy.info_readretry) { Exchange.sys.fn.print(" ReadRetrySetParam(addr,data)-Post             "); }
+
+            // MPRMSET
+            for (addr_idx=0; addr_idx < toshiba_readretry->param[0].addr_cnt; addr_idx++)
+            {
+                addr = toshiba_readretry->param[0].addr[addr_idx];
+                data = toshiba_readretry->exitdata[addr_idx];
+
+                NFC_PHY_Cmd(0x55);          // CMD:  0x55
+                NFC_PHY_tDelay(200);        // tCALHV + tCALSV
+                NFC_PHY_Addr(addr);         // ADDR:
+                NFC_PHY_tDelay(200);        // tCALHV + tCALSV
+                NFC_PHY_WData(data);        // DATA:
+                NFC_PHY_tDelay(200);        // tCALHV + tCALSV
+
+                if (Exchange.debug.nfc.phy.info_readretry) { Exchange.sys.fn.print("(%02x,%02x) ", addr, data); }
+            }
+
+            // FF
+            NFC_PHY_Cmd(0xFF);              // CMD:  0xFF
+            NFC_PHY_tDelay(2000);           // tRST
+
+            if (Exchange.debug.nfc.phy.info_readretry) { Exchange.sys.fn.print("FF\n"); }
+        }
+        NFC_PHY_ChipSelect(channel, phyway, __FALSE);
+    }
+
+    toshiba_readretry->curr_readretry_cnt[way][channel] = 0;
+}
+
+void NFC_PHY_TOSHIBA_READRETRY_PrintTable(void)
+{
+    if (Exchange.debug.nfc.phy.info_readretry_table)
+    {
+        int channel = 0;
+        int way = 0;
+
+        Exchange.sys.fn.print(" ##################################################\n");
+        Exchange.sys.fn.print(" #            TOSHIBA READ RETRY TABLE             \n");
+        Exchange.sys.fn.print(" # max_channels:%d, max_ways:%d\n", toshiba_readretry->max_channels, toshiba_readretry->max_ways);
+
+        for (channel=0; channel < toshiba_readretry->max_channels; channel++)
+        {
+            for (way=0; way < toshiba_readretry->max_ways; way++)
+            {
+                int m=0, n=0;
+
+                Exchange.sys.fn.print(" #\n");
+                Exchange.sys.fn.print(" # table of channel(%d), way(%d)\n", channel, way);
+                Exchange.sys.fn.print(" #  total_readretry_cnt:%d, curr_readretry_cnt:%d\n", toshiba_readretry->total_readretry_cnt, toshiba_readretry->curr_readretry_cnt[way][channel]);
+                Exchange.sys.fn.print(" #           NoP |");
+                
+                Exchange.sys.fn.print(" ADDR");
+                for (n=1; n < toshiba_readretry->param[0].addr_cnt; n++)
+                {
+                    Exchange.sys.fn.print("   ");
+                }
+                Exchange.sys.fn.print("| DATA");
+                for (n=1; n < toshiba_readretry->param[0].addr_cnt; n++)
+                {
+                    Exchange.sys.fn.print("   ");
+                }
+                Exchange.sys.fn.print("| NOC | CMD");
+                Exchange.sys.fn.print("\n");
+
+                for (m=0; m < (toshiba_readretry->total_readretry_cnt - 1); m++)
+                {
+                    Exchange.sys.fn.print(" #  [Step%2d]", m);
+
+                    Exchange.sys.fn.print("  %02d | ", toshiba_readretry->param[m].addr_cnt);
+                    
+                    for (n=0; n < toshiba_readretry->param[m].addr_cnt; n++)
+                    {
+                        Exchange.sys.fn.print(" %02x", toshiba_readretry->param[m].addr[n]);
+                    }
+                    Exchange.sys.fn.print(" | ");
+
+                    for (n=0; n < toshiba_readretry->param[m].addr_cnt; n++)
+                    {
+                        Exchange.sys.fn.print(" %02x", toshiba_readretry->param[m].data[n]);
+                    }
+
+                    Exchange.sys.fn.print(" |  %02d |", toshiba_readretry->param[m].command_cnt);
+
+                    for (n=0; n < toshiba_readretry->param[m].command_cnt; n++)
+                    {
+                        Exchange.sys.fn.print("  %02x ", toshiba_readretry->param[m].command[n]);
+                    }
+
+                    Exchange.sys.fn.print("\n");
+                }
+            }
+        }
+        Exchange.sys.fn.print(" ##################################################\n");
+    }
+}
+
+
+/******************************************************************************
+ * local functions
+ ******************************************************************************/
+
+
+/******************************************************************************
+ *
+ * THE FOLLOWINGS ARE NANDS THAT SUPPORT READ RETRY FEATURES.
+ *
+ ******************************************************************************/
+
+static struct
+{
+    unsigned char is_init;
+    unsigned char type;
+
+} readretry;
+
+int NFC_PHY_READRETRY_Init(unsigned int _max_channels, unsigned int _max_ways, const unsigned char *_way_map, unsigned char _readretry_type)
+{
+    int resp = -1;
+
+    switch (_readretry_type)
+    {
+        case NAND_READRETRY_TYPE_MICRON_20NM:
+        {
+            resp = NFC_PHY_MICRON_READRETRY_Init(_max_channels, _max_ways, _way_map, _readretry_type);
+
+        } break;
+
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
+        {
+            resp = NFC_PHY_HYNIX_READRETRY_Init(_max_channels, _max_ways, _way_map, _readretry_type);
+
+        } break;
+
+        case NAND_READRETRY_TYPE_TOSHIBA_A19NM:
+        {
+            resp = NFC_PHY_TOSHIBA_READRETRY_Init(_max_channels, _max_ways, _way_map, _readretry_type);
+
+        } break;
+
+        default:
+        {
+            Exchange.sys.fn.print("NFC_PHY_READRETRY_Init: error! need to be initialized\n");
+
+        } break;
+    }
+
+    if (resp >= 0)
+    {
+        Exchange.nfc.fnReadRetry_GetTotalReadRetryCount = NFC_PHY_READRETRY_GetTotalReadRetryCount;
+        Exchange.nfc.fnReadRetry_SetParameter = NFC_PHY_READRETRY_SetParameter;
+        Exchange.nfc.fnReadRetry_Post = NFC_PHY_READRETRY_Post;
+
+        readretry.is_init = 1;
+        readretry.type = _readretry_type;
+    }
+
+    return resp;
+}
+
+void NFC_PHY_READRETRY_DeInit(void)
+{
+    switch (readretry.type)
+    {
+        case NAND_READRETRY_TYPE_MICRON_20NM:
+        {
+            NFC_PHY_MICRON_READRETRY_DeInit();
+        } break;
+
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
+        {
+            NFC_PHY_HYNIX_READRETRY_DeInit();
+        } break;
+
+        case NAND_READRETRY_TYPE_TOSHIBA_A19NM:
+        {
+            NFC_PHY_TOSHIBA_READRETRY_DeInit();
+        } break;
+
+        default: {} break;
+    }
+
+    readretry.is_init = 0;
+}
+
+int NFC_PHY_READRETRY_GetTotalReadRetryCount(unsigned int _channel, unsigned int _way)
+{
+    int count=0;
+
+    if (!readretry.is_init)
+    {
+        return 0;
+    }
+
+    switch (readretry.type)
+    {
+        case NAND_READRETRY_TYPE_MICRON_20NM:
+        {
+            count = NFC_PHY_MICRON_READRETRY_GetTotalReadRetryCount();
+        } break;
+
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
+        {
+            count = NFC_PHY_HYNIX_READRETRY_GetTotalReadRetryCount(_channel, _way);
+        } break;
+
+        case NAND_READRETRY_TYPE_TOSHIBA_A19NM:
+        {
+            count = NFC_PHY_TOSHIBA_READRETRY_GetTotalReadRetryCount();
+        } break;
+
+        default:
+        {
+            count = 0;
+        } break;
+    }
+
+    return count;
+}
+
+void NFC_PHY_READRETRY_SetParameter(unsigned int _channel, unsigned int _phyway)
+{
+    if (!readretry.is_init)
+    {
+        return;
+    }
+
+    switch (readretry.type)
+    {
+        case NAND_READRETRY_TYPE_MICRON_20NM:
+        {
+            NFC_PHY_MICRON_READRETRY_SetParameter(_channel, _phyway);
+        } break;
+
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
+        {
+            NFC_PHY_HYNIX_READRETRY_SetParameter(_channel, _phyway);
+        } break;
+
+        case NAND_READRETRY_TYPE_TOSHIBA_A19NM:
+        {
+            NFC_PHY_TOSHIBA_READRETRY_SetParameter(_channel, _phyway);
+        } break;
+
+        default: {} break;
+    }
+}
+
+void NFC_PHY_READRETRY_Post(unsigned int _channel, unsigned int _phyway)
+{
+    unsigned int channel = _channel;
+    unsigned int phyway = _phyway;
+
+    if (!readretry.is_init)
+    {
+        return;
+    }
+
+    switch (readretry.type)
+    {
+        case NAND_READRETRY_TYPE_MICRON_20NM:
+        {
+            NFC_PHY_MICRON_READRETRY_Post(channel, phyway);
+        } break;
+
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
+        {
+            // do nothing.
+        } break;
+
+        case NAND_READRETRY_TYPE_TOSHIBA_A19NM:
+        {
+            NFC_PHY_TOSHIBA_READRETRY_ExitReadRetryMode(channel, phyway);
+        } break;
+
+        default: {} break;
+    }
+
+}
+
+void NFC_PHY_READRETRY_PrintTable(void)
+{
+    if (!readretry.is_init)
+    {
+        return;
+    }
+
+    switch (readretry.type)
+    {
+        case NAND_READRETRY_TYPE_MICRON_20NM: {} break;
+
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_A_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_20NM_MLC_BC_DIE:
+        case NAND_READRETRY_TYPE_HYNIX_1xNM_MLC:
+        {
+            NFC_PHY_HYNIX_READRETRY_PrintTable();
+
+        } break;
+
+        case NAND_READRETRY_TYPE_TOSHIBA_A19NM:
+        {
+            NFC_PHY_TOSHIBA_READRETRY_PrintTable();
+
+        } break;
+
+        default: {} break;
+    }
+}

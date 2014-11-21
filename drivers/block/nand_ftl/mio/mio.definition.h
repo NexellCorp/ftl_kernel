@@ -62,36 +62,8 @@
 
 #endif
 
-#define __PRINTK_DBG
-#define __DBG_BLK
-#define __DBG_BLK_REQ
-//#define __DBG_MEDIA
 //#define __DBG_MIOSYS
 //#define __DBG_MIOSMART
-
-#ifndef __PRINTK_DBG
-#define PRINTK_DBG(fmt, args...) __PRINT(fmt, ##args)
-#else
-#define PRINTK_DBG(fmt, args...)
-#endif
-
-#ifndef __DBG_BLK
-#define DBG_BLK(fmt, args...) __PRINT(fmt, ##args)
-#else
-#define DBG_BLK(fmt, args...)
-#endif
-
-#ifndef __DBG_BLK_REQ
-#define DBG_BLK_REQ(fmt, args...) __PRINT(fmt, ##args)
-#else
-#define DBG_BLK_REQ(fmt, args...)
-#endif
-
-#ifndef __DBG_MEDIA
-#define DBG_MEDIA(fmt, args...) __PRINT(fmt, ##args)
-#else
-#define DBG_MEDIA(fmt, args...)
-#endif
 
 #ifndef __DBG_MIOSYS
 #define DBG_MIOSYS(fmt, args...) __PRINT(fmt, ##args)

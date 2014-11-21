@@ -59,6 +59,7 @@
 #include <linux/wait.h>
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
+#include <linux/pm.h>
 
 /******************************************************************************
  *
