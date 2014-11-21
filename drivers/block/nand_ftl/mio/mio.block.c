@@ -747,7 +747,8 @@ static void __exit mio_exit(void)
 /******************************************************************************
  *
  ******************************************************************************/
-static int nand_suspend(struct platform_device * pdev, pm_message_t state)
+//static int nand_suspend(struct platform_device * pdev, pm_message_t state)
+static int nand_suspend(struct device *dev)
 {
     mio_dev.io_state->power.suspending = 1;
 
@@ -762,7 +763,8 @@ static int nand_suspend(struct platform_device * pdev, pm_message_t state)
 /******************************************************************************
  *
  ******************************************************************************/
-static int nand_resume(struct platform_device *pdev)
+//static int nand_resume(struct platform_device *pdev)
+static int nand_resume(struct device *dev)
 {
     media_resume();
 
