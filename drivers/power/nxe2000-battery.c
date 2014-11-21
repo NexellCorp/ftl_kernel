@@ -4246,7 +4246,6 @@ static void otgid_detect_irq_work(struct work_struct *work)
 	msleep(10);
 }
 
-#if defined(CONFIG_USB_DWCOTG)
 int otgid_power_control_by_dwc(int enable)
 {
 	if(info_by_dwc == NULL)
@@ -4268,7 +4267,6 @@ int otgid_power_control_by_dwc(int enable)
 	return 0;
 }
 EXPORT_SYMBOL(otgid_power_control_by_dwc);
-#endif
 
 #if defined(ENABLE_LOW_BATTERY_VSYS_DETECTION) || defined(ENABLE_LOW_BATTERY_VBAT_DETECTION)
 static void low_battery_irq_work(struct work_struct *work)
@@ -5496,9 +5494,7 @@ static __devinit int nxe2000_battery_probe(struct platform_device *pdev)
 
 	ret = nxe2000_init_battery(info);
 
-#if defined(CONFIG_USB_DWCOTG)
 	info_by_dwc = info;
-#endif
 	if (ret)
 		goto out;
 
@@ -5841,12 +5837,10 @@ static int nxe2000_battery_suspend(struct device *dev)
 
 	if (info->gpio_otg_usbid > -1) {
 		otg_id = gpio_get_value(info->gpio_otg_usbid);
-#if defined(CONFIG_USB_DWCOTG)
 		if ((vbus_irq_disabled == 0) && (otg_id == 0)){
 			disable_irq(charger_irq + NXE2000_IRQ_FVUSBDETSINT);
 			vbus_irq_disabled = 1;
 		}
-#endif
 	}
 
 #if 1
@@ -6499,13 +6493,11 @@ static int nxe2000_battery_resume(struct device *dev) {
 	}
 
 	if (info->gpio_otg_usbid > -1) {
-#if defined(CONFIG_USB_DWCOTG)
 		if (vbus_irq_disabled == 1)
 		{
 			enable_irq(charger_irq + NXE2000_IRQ_FVUSBDETSINT);
 			vbus_irq_disabled = 0;
 		}
-#endif
 	}
 
 //	nxe2000_power_suspend_status    = 0;

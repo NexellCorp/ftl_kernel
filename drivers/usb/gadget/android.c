@@ -282,8 +282,8 @@ static void ffs_function_disable(struct android_usb_function *f)
 	config->enabled = false;
 
 	/* Balance the disable that was called in closed_callback */
-	if (!config->opened)
-		android_enable(dev);
+	if (config->opened)
+		android_disable(dev);
 }
 
 static int ffs_function_bind_config(struct android_usb_function *f,
@@ -442,8 +442,8 @@ static void adb_android_function_disable(struct android_usb_function *f)
 	data->enabled = false;
 
 	/* Balance the disable that was called in closed_callback */
-	if (!data->opened)
-		android_enable(dev);
+	if (data->opened)
+		android_disable(dev);
 }
 
 static struct android_usb_function adb_function = {

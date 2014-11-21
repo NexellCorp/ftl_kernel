@@ -754,6 +754,10 @@ void dpm_resume(pm_message_t state)
 
 			error = device_resume(dev, state, false);
 			if (error) {
+				printk ("* resume failed dev: %s\n", (dev_name(dev)));
+			}
+
+			if (error) {
 				suspend_stats.failed_resume++;
 				dpm_save_failed_step(SUSPEND_RESUME);
 				dpm_save_failed_dev(dev_name(dev));
@@ -1232,6 +1236,9 @@ int dpm_suspend(pm_message_t state)
 		mutex_unlock(&dpm_list_mtx);
 
 		error = device_suspend(dev);
+		if (error) {
+			printk ("* suspend failed dev: %s\n", (dev_name(dev)));
+		}
 
 		mutex_lock(&dpm_list_mtx);
 		if (error) {

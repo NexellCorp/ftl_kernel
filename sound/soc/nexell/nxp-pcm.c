@@ -48,7 +48,8 @@
 */
 
 //#define DUMP_DMA_ENABLE
-#define	DUMP_DMA_PATH			"/data/pcm/pcm_dma.law"
+#define	DUMP_DMA_PATH_P			"/tmp/pcm_dma_p.raw"
+#define	DUMP_DMA_PATH_C			"/tmp/pcm_dma_c.raw"
 #define	DUMP_DMA_TIME			20	/* sec */
 #define	DUMP_SAMPLE_COMPLETED
 //#define	DUMP_DMA_CONTINUOUS
@@ -173,21 +174,38 @@ static void nxp_pcm_dma_complete(void *arg)
 	int over_samples = div64_s64((new - ts), period_us);
 	int i;
 
-	if (0 == over_samples)
-		over_samples = 1;
-
-	prtd->time_stamp_us = new;
+	if(prtd->dma_param->real_clock != 0) // i2s master mode
+	{
+		if (2 > over_samples){
+			over_samples = 1;
+			prtd->time_stamp_us = new;
+		} else {
+			prtd->time_stamp_us += (over_samples*period_us);
+		}
+	}
 
 	/*
-		if (over_samples > 1)
-			printk("[pcm overs :%d]\n", over_samples);
+	if (over_samples > 1)
+		printk("[pcm overs :%d]\n", over_samples);
 	*/
 	/*
 		pr_debug("snd pcm: %s complete offset = %8d (preiodbytes=%d) over samples = %d\n",
 		STREAM_STR(substream->stream), prtd->offset,
 		snd_pcm_lib_period_bytes(substream), over_samples);
 	*/
-	for (i = 0; over_samples > i; i++) {
+	if(prtd->dma_param->real_clock != 0) // i2s master mode
+	{
+		for (i = 0; over_samples > i; i++) {
+			prtd->offset += snd_pcm_lib_period_bytes(substream);
+			if (prtd->offset >= snd_pcm_lib_buffer_bytes(substream))
+				prtd->offset = 0;
+	
+			nxp_pcm_file_mem_write(substream);
+			snd_pcm_period_elapsed(substream);
+		}
+	}
+	else // i2s slave mode
+	{
 		prtd->offset += snd_pcm_lib_period_bytes(substream);
 		if (prtd->offset >= snd_pcm_lib_buffer_bytes(substream))
 			prtd->offset = 0;
@@ -239,32 +257,46 @@ static int nxp_pcm_dma_slave_config(void *runtime_data, int stream)
 	struct dma_slave_config slave_config = { 0, };
 	dma_addr_t	peri_addr = dma_param->peri_addr;
 	int	bus_width = dma_param->bus_width_byte;
-	int	peri_burst = dma_param->max_burst_byte;
+	int	max_burst = dma_param->max_burst_byte;
 	int ret;
+
+	switch (max_burst) {
+	case   1: max_burst =   PL080_BSIZE_1; break; 	// PL080_BSIZE_1	: 0x0
+	case   4: max_burst =   PL080_BSIZE_4; break; 	// PL080_BSIZE_4    : 0x1
+	case   8: max_burst =   PL080_BSIZE_8; break; 	// PL080_BSIZE_8    : 0x2
+	case  16: max_burst =  PL080_BSIZE_16; break; 	// PL080_BSIZE_16   : 0x3
+	case  32: max_burst =  PL080_BSIZE_32; break; 	// PL080_BSIZE_32   : 0x4
+	case  64: max_burst =  PL080_BSIZE_64; break; 	// PL080_BSIZE_64   : 0x5
+	case 128: max_burst = PL080_BSIZE_128; break; 	// PL080_BSIZE_128  : 0x6
+	case 256: max_burst = PL080_BSIZE_256; break; 	// PL080_BSIZE_256  : 0x7
+	default:
+		printk(KERN_ERR "Fail, pcm dma invalid burst size %d byte\n", max_burst);
+		return -EINVAL;
+	}
 
 	if (SNDRV_PCM_STREAM_PLAYBACK == stream) {
 		slave_config.direction 		= DMA_MEM_TO_DEV;
 		slave_config.dst_addr 		= peri_addr;
 		slave_config.dst_addr_width = bus_width;
-		slave_config.dst_maxburst 	= peri_burst/4;	/* peri burst dword unit */
+		slave_config.dst_maxburst 	= max_burst;
 		slave_config.src_addr_width = bus_width;
-		slave_config.src_maxburst 	= peri_burst/4;	/* memory burst */
+		slave_config.src_maxburst 	= max_burst;
 		slave_config.device_fc 		= false;
 	} else {
 		slave_config.direction 		= DMA_DEV_TO_MEM;
 		slave_config.src_addr 		= peri_addr;
 		slave_config.src_addr_width = bus_width;
-		slave_config.src_maxburst 	= peri_burst/4;	/* peri burst dword unit */
+		slave_config.src_maxburst 	= max_burst;
 		slave_config.dst_addr_width = bus_width;
-		slave_config.dst_maxburst 	= peri_burst/4;	/* memory burst */
+		slave_config.dst_maxburst 	= max_burst;
 		slave_config.device_fc 		= false;
 	}
 
 	ret = dmaengine_slave_config(prtd->dma_chan, &slave_config);
 
-	pr_debug("%s: %s %s, %s, addr=0x%x, bus=%d byte, peri burst=%dbyte\n",
+	pr_debug("%s: %s %s, %s, addr=0x%x, bus=%d byte, burst=%d (%d)\n",
 		__func__, ret?"FAIL":"DONE", STREAM_STR(stream),
-		dma_param->dma_ch_name,	peri_addr, bus_width, peri_burst);
+		dma_param->dma_ch_name,	peri_addr, bus_width, dma_param->max_burst_byte, max_burst);
 	return ret;
 }
 
@@ -303,7 +335,10 @@ static int nxp_pcm_dma_prepare_and_submit(struct snd_pcm_substream *substream)
 	/*
 	 * debug msg
 	 */
-	period_time_us = (1000000 / ((runtime->rate)/runtime->period_size));
+	if(prtd->dma_param->real_clock != 0) // i2s master mode
+		period_time_us = (1000000*1000)/((prtd->dma_param->real_clock*1000)/runtime->period_size);
+	else // i2s slave mode
+		period_time_us = 1000;
 	pr_debug("%s: %s\n", __func__, STREAM_STR(substream->stream));
 	pr_debug("buffer_bytes=%6d, period_bytes=%6d, periods=%2d, rate=%6d, period_time=%3d ms\n",
 		snd_pcm_lib_buffer_bytes(substream), snd_pcm_lib_period_bytes(substream),
@@ -418,18 +453,26 @@ static int nxp_pcm_hw_params(struct snd_pcm_substream *substream,
 	prtd->periods = params_periods(params);
 	prtd->period_bytes = params_period_bytes(params);
 	prtd->buffer_bytes = params_buffer_bytes(params);
-	prtd->period_time_us = 1000000/(params_rate(params)/params_period_size(params));
+	if(prtd->dma_param->real_clock != 0) // i2s master mode
+		prtd->period_time_us = (1000000*1000)/((prtd->dma_param->real_clock*1000)/params_period_size(params));
+	else // i2s slave mode
+		prtd->period_time_us = 1000;
 
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
-	nxp_pcm_file_mem_allocate(DUMP_DMA_PATH, substream, params);
+
+	if(substream->stream == 0)
+		nxp_pcm_file_mem_allocate(DUMP_DMA_PATH_P, substream, params);
+	else
+		nxp_pcm_file_mem_allocate(DUMP_DMA_PATH_C, substream, params);
+
 
 	/*
 	 * debug msg
 	 */
 	pr_debug("%s: %s\n", __func__, STREAM_STR(substream->stream));
-	pr_debug("buffer_size =%6d, period_size =%6d, periods=%2d, rate=%6d\n",
+	pr_debug("buffer_size =%6d, period_size =%6d, periods=%2d, rate=%6d\n, real_rate=%6d\n",
 		params_buffer_size(params),	params_period_size(params),
-		params_periods(params), params_rate(params));
+		params_periods(params), params_rate(params), prtd->dma_param->real_clock);
 	pr_debug("buffer_bytes=%6d, period_bytes=%6d, periods=%2d, period_time=%3lld us\n",
 		prtd->buffer_bytes, prtd->period_bytes, prtd->periods, prtd->period_time_us);
 	return 0;
@@ -437,7 +480,11 @@ static int nxp_pcm_hw_params(struct snd_pcm_substream *substream,
 
 static int nxp_pcm_hw_free(struct snd_pcm_substream *substream)
 {
-	nxp_pcm_file_mem_free(DUMP_DMA_PATH, substream);
+	if(substream->stream == 0)
+		nxp_pcm_file_mem_free(DUMP_DMA_PATH_P, substream);
+	else
+		nxp_pcm_file_mem_free(DUMP_DMA_PATH_C, substream);
+
 	snd_pcm_set_runtime_buffer(substream, NULL);
 	return 0;
 }

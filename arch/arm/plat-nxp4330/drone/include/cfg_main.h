@@ -61,7 +61,6 @@
 #define CFG_NAND_ECC_BYTES 						1024
 #define CFG_NAND_ECC_BITS               		40			/* 512 - 4,8,16,24 1024 - 24,40,60 */
 //#define CFG_NAND_ECCIRQ_MODE
-#define CFG_NAND_FTL_START_BLOCK				0x2000000	/* byte address, Must Be Multiple of 8MB */
 
 /*------------------------------------------------------------------------------
  *	Nand (GPIO)
@@ -220,7 +219,7 @@
 #define CFG_GPIO_OTG_USBID_DET					(PAD_GPIO_D + 16)
 #define CFG_GPIO_OTG_VBUS_DET					(PAD_GPIO_D + 21)
 #define CFG_GPIO_PMIC_VUSB_DET					(PAD_GPIO_ALV + 2)		/* Choice for SW_UBC or Wake-up*/
-#define CFG_GPIO_PMIC_LOWBAT_DET				(PAD_GPIO_ALV + 3)		/* Critical low battery detect */
+#define CFG_GPIO_PMIC_LOWBAT_DET				(-1)//(PAD_GPIO_ALV + 3)		/* Critical low battery detect */
 #define CFG_GPIO_PMIC_INTR						(PAD_GPIO_ALV + 4)
 #define CFG_PMIC_BAT_CHG_SUPPORT				(1)
 
