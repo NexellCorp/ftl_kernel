@@ -65,6 +65,14 @@
 #endif
 
 /******************************************************************************
+ * Optimize Option
+ ******************************************************************************/
+#if defined (__COMPILE_MODE_BEST_DEBUGGING__)
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+#endif
+
+/******************************************************************************
  *
  ******************************************************************************/
 static char * __parity_buffer0 = 0;         // Max 100 bit ecc
@@ -620,6 +628,27 @@ unsigned int NFC_PHY_EccCorrection(char         * _error_at,
         else
         {
             uncorrected = 1;
+
+#if 0 // print uncorrectable data 
+            {
+                int data_idx=0;
+                unsigned int *data = (unsigned int *)read_buffer;
+
+                Exchange.sys.fn.print("uncorrected data: row:%d col:%d", row, col);
+                for (data_idx=0; data_idx < (bytes_per_ecc/sizeof(unsigned int)); data_idx++)
+                {
+                    if (!(data_idx % 16))
+                    {
+                        Exchange.sys.fn.print("\n");
+                        Exchange.sys.fn.print("[%04x] ", data_idx);
+                    }
+                    
+                    Exchange.sys.fn.print("%08x ", data[data_idx]);
+                }
+                Exchange.sys.fn.print("\n");
+            }
+#endif
+
         }
     }
     else
@@ -4511,3 +4540,10 @@ unsigned char NFC_PHY_3rdErase(unsigned int _channel, unsigned int _way)
 
     return status;
 }
+
+/******************************************************************************
+ * Optimize Restore
+ ******************************************************************************/
+#if defined (__COMPILE_MODE_BEST_DEBUGGING__)
+#pragma GCC pop_options
+#endif

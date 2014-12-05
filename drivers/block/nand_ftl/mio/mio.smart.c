@@ -112,14 +112,14 @@ int miosmart_init(unsigned int _max_channels, unsigned int _max_ways)
             }
             else
             {
-                printk(KERN_ERR "MIO.SMART.INIT: Memory Allocation Fail (Used For %d WAY)", way);
+                printk(KERN_ERR "MIO.SMART.INIT: Memory Allocation Fail (Used For %d WAY)\n", way);
                 resp = -1;
             }
         }
     }
     else
     {
-        printk(KERN_ERR "MIO.SMART.INIT: Memory Allocation Fail");
+        printk(KERN_ERR "MIO.SMART.INIT: Memory Allocation Fail\n");
         resp = -1;
     }
 
@@ -136,7 +136,7 @@ int miosmart_init(unsigned int _max_channels, unsigned int _max_ways)
 
     if (mioadmin_init() < 0)
     {
-        printk(KERN_ERR "MIO.SMART.INIT: FTL Admin Init Fail");
+        printk(KERN_ERR "MIO.SMART.INIT: FTL Admin Init Fail\n");
         resp = -1;
     }
 
@@ -150,7 +150,7 @@ int miosmart_init(unsigned int _max_channels, unsigned int _max_ways)
 
         if (required_bytes > __SECTOR_SIZEOF(mioadmin.adminhigh_sectors))
         {
-            printk(KERN_ERR "MIO.SMART.INIT: Not Enough SMART Data Region");
+            printk(KERN_ERR "MIO.SMART.INIT: Not Enough SMART Data Region\n");
             resp = -1;
         }
     }
@@ -370,7 +370,7 @@ int miosmart_load(void)
         crc32 = Exchange.sys.fn.get_crc32(0, (void *)(io_data), (io_data->this_size - 4));
         if (io_data->crc32 != crc32)
         {
-            DBG_MIOSMART(KERN_WARNING "MIO.SMART.LOAD.IO.DATA: Not Matched Calculated CRC32 (%08x) With Stored CRC32 (%08x)", io_data->crc32, crc32);
+            DBG_MIOSMART(KERN_WARNING "MIO.SMART.LOAD.IO.DATA: Not Matched Calculated CRC32 (%08x) With Stored CRC32 (%08x)\n", io_data->crc32, crc32);
             continue;
         }
 
@@ -392,7 +392,7 @@ int miosmart_load(void)
 
                 if (nand_data->crc32 != crc32)
                 {
-                    DBG_MIOSMART(KERN_WARNING "MIO.SMART.LOAD.NAND(%d,%d).DATA: Not Matched Calculated CRC32 (%08x) With Stored CRC32 (%08x)", channel, way, nand_data->crc32, crc32);
+                    DBG_MIOSMART(KERN_WARNING "MIO.SMART.LOAD.NAND(%d,%d).DATA: Not Matched Calculated CRC32 (%08x) With Stored CRC32 (%08x)\n", channel, way, nand_data->crc32, crc32);
                     continue;
                 }
 
@@ -468,7 +468,7 @@ int miosmart_save(void)
     /**********************************************************************
      * write & verify
      **********************************************************************/
-    if (Exchange.debug.misc.smart_store) { Exchange.sys.fn.print("MIO.SMART.STORE: Start"); }
+    if (Exchange.debug.misc.smart_store) { Exchange.sys.fn.print("MIO.SMART.STORE: Start\n"); }
 
     for (try_count = 0; try_count < 2; try_count++)
     {
@@ -491,7 +491,7 @@ int miosmart_save(void)
         if (io_data->crc32 != crc32)
         {
             // ??
-            DBG_MIOSMART(KERN_WARNING "MIO.SMART.STORE.IO.DATA: Not Matched Calculated CRC32 (%08x) With Storing CRC32 (%08x)", io_data->crc32, crc32);
+            DBG_MIOSMART(KERN_WARNING "MIO.SMART.STORE.IO.DATA: Not Matched Calculated CRC32 (%08x) With Storing CRC32 (%08x)\n", io_data->crc32, crc32);
             continue;
         }
         dest_buff += io_data->this_size;
@@ -506,7 +506,7 @@ int miosmart_save(void)
                 if (nand_data->crc32 != crc32)
                 {
                     // ??
-                    DBG_MIOSMART(KERN_WARNING "MIO.SMART.STORE.NAND(%d,%d).DATA: Not Matched Calculated CRC32 (%08x) With Storing CRC32 (%08x)", channel, way, nand_data->crc32, crc32);
+                    DBG_MIOSMART(KERN_WARNING "MIO.SMART.STORE.NAND(%d,%d).DATA: Not Matched Calculated CRC32 (%08x) With Storing CRC32 (%08x)\n", channel, way, nand_data->crc32, crc32);
                     continue;
                 }
 
@@ -527,7 +527,7 @@ int miosmart_save(void)
         prev_nanddata0c0w_crc32 = MioSmartInfo.nand_accumulate[0][0].crc32;
     }
 
-    if (Exchange.debug.misc.smart_store) { Exchange.sys.fn.print("MIO.SMART.STORE: Stop"); }
+    if (Exchange.debug.misc.smart_store) { Exchange.sys.fn.print("MIO.SMART.STORE: Stop\n"); }
 
     return resp;
 }
@@ -536,7 +536,7 @@ void miosmart_get_erasecount(unsigned int * min, unsigned int * max, unsigned in
 {
     unsigned int sum_erasecount = 0, erasecount = 0, validnum_erasecount = 0;
     unsigned int min_erasecount = 0xFFFFFFFF, max_erasecount = 0;
-    unsigned int attribute = 0, sub_attribute = 0;
+    unsigned int attribute = 0, sub_attribute = 0, partition = 0;
     unsigned char channel = 0, way = 0;
     unsigned char max_channels = MioSmartInfo.max_channels;
     unsigned char max_ways = MioSmartInfo.max_ways;
@@ -551,7 +551,7 @@ void miosmart_get_erasecount(unsigned int * min, unsigned int * max, unsigned in
     wearlevel_data = (unsigned int *)vmalloc(buff_size);
     if (!wearlevel_data)
     {
-        DBG_MIOSMART(KERN_WARNING "MIO.SMART.GET.ERASE.COUNT: Memory Allocation Fail");
+        DBG_MIOSMART(KERN_WARNING "MIO.SMART.GET.ERASE.COUNT: Memory Allocation Fail\n");
         return;
     }
 
@@ -566,9 +566,12 @@ void miosmart_get_erasecount(unsigned int * min, unsigned int * max, unsigned in
                 entrydata = *(wearlevel_data + block);
 
                 attribute = (entrydata & 0xF0000000) >> 28;
+                partition = (entrydata & 0x0F000000) >> 24;
                 sub_attribute = (entrydata & 0x00F00000) >> 20;
                 erasecount = (entrydata & 0x000FFFFF);
               //erasecount = __NROOT(erasecount, (bits_per_cell - 1));
+
+                isvalid_erasecount = 0;
 
                 switch (attribute)
                 {
@@ -578,6 +581,10 @@ void miosmart_get_erasecount(unsigned int * min, unsigned int * max, unsigned in
                     case BLOCK_TYPE_DATA_HOT_BAD:
                     case BLOCK_TYPE_DATA_COLD:
                     case BLOCK_TYPE_DATA_COLD_BAD:
+                    {
+                        if (!partition) { isvalid_erasecount = 1; }
+                    } break;
+
                     case BLOCK_TYPE_MAPLOG:
                     case BLOCK_TYPE_FREE:
                     {
@@ -677,7 +684,7 @@ int mioadmin_init(void)
     }
     else
     {
-        printk(KERN_ERR "MIO.ADMIN.INIT: Memory Allocation Fail");
+        printk(KERN_ERR "MIO.ADMIN.INIT: Memory Allocation Fail\n");
         resp = -1;
     }
 

@@ -40,6 +40,14 @@ static u8 * media_on_ram;
 #endif
 
 /******************************************************************************
+ * Optimize Option
+ ******************************************************************************/
+#if defined (__COMPILE_MODE_BEST_DEBUGGING__)
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+#endif
+
+/******************************************************************************
  *
  ******************************************************************************/
 void media_gpio_init(void);
@@ -85,7 +93,7 @@ int media_open(void)
   //Exchange.debug.misc.media_open = 1;
   //Exchange.debug.misc.media_format = 1;
   //Exchange.debug.misc.media_close = 1;
-    Exchange.debug.misc.smart_store = 1;
+  //Exchange.debug.misc.smart_store = 1;
   //Exchange.debug.misc.uboot_format = 1;
   //Exchange.debug.misc.uboot_init = 1;
 
@@ -663,3 +671,10 @@ void media_gpio_c01_low(void)
 {
     nxp_soc_gpio_set_out_value(Exchange.sys.gpio.c_01, 0);
 }
+
+/******************************************************************************
+ * Optimize Restore
+ ******************************************************************************/
+#if defined (__COMPILE_MODE_BEST_DEBUGGING__)
+#pragma GCC pop_options
+#endif

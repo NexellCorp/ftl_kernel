@@ -378,29 +378,29 @@ int miosys_print_wearleveldata(void)
                     case BLOCK_TYPE_DATA_COLD:
                     case BLOCK_TYPE_DATA_COLD_BAD:
                     {
-                        if (!partition) { DBG_MIOSYS(KERN_INFO " BLOCK %5d, EraseCount(%5d), DATA",         blockindex, erasecount); isvalid_erasecount = 1; }
-                        else            { DBG_MIOSYS(KERN_INFO " BLOCK %5d, EraseCount(%5d), DATA (ADMIN)", blockindex, erasecount); isvalid_erasecount = 1; }
+                        if (!partition) { DBG_MIOSYS(KERN_INFO " %08x BLOCK:%5d EraseCount:%5d DATA", entrydata, blockindex, erasecount); isvalid_erasecount = 1; }
+                        else            { DBG_MIOSYS(KERN_INFO " %08x BLOCK:%5d EraseCount:%5d DATA (ADMIN)", entrydata, blockindex, erasecount); }
                     } break;
 
-                    case BLOCK_TYPE_MAPLOG: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, EraseCount(%5d), SYSTEM (M)", blockindex, erasecount); isvalid_erasecount = 1; } break;
-                    case BLOCK_TYPE_FREE: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, EraseCount(%5d), FREE",       blockindex, erasecount); isvalid_erasecount = 1; } break;
+                    case BLOCK_TYPE_MAPLOG: { DBG_MIOSYS(KERN_INFO " %08x BLOCK:%5d EraseCount:%5d SYSTEM (M)", entrydata, blockindex, erasecount); isvalid_erasecount = 1; } break;
+                    case BLOCK_TYPE_FREE:   { DBG_MIOSYS(KERN_INFO " %08x BLOCK:%5d EraseCount:%5d FREE", entrydata, blockindex, erasecount); isvalid_erasecount = 1; } break;
                     case 0xA:
                     {
                         switch (sub_attribute)
                         {
-                            case 0x7: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, PROHIBIT",       blockindex); } break;
-                            case 0x8: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, CONFIG",         blockindex); } break;
-                            case 0x9: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, SYSTEM (RETRY)", blockindex); } break;
-                            case BLOCK_TYPE_IBAD: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, BAD (Initial)",  blockindex); badblock_count++; } break;
-                            case BLOCK_TYPE_FBAD: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, BAD (Factory)",  blockindex); badblock_count++; } break;
-                            case BLOCK_TYPE_RBAD: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, BAD (Runtime)",  blockindex); badblock_count++; } break;
-                            case BLOCK_TYPE_ROOT: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, SYSTEM (ROOT)",  blockindex); } break;
-                            case BLOCK_TYPE_ENED: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, SYSTEM (ENED)",  blockindex); } break;
-                            case BLOCK_TYPE_FIRM: { DBG_MIOSYS(KERN_INFO " BLOCK %5d, SYSTEM (FW)",    blockindex); } break;
-                            default:  { DBG_MIOSYS(KERN_INFO " BLOCK %5d, SYSTEM (0x%x)",  blockindex, sub_attribute); } break;
+                            case 0x7:             { DBG_MIOSYS(KERN_INFO " %08x BLOCK:%5d PROHIBIT", entrydata, blockindex); } break;
+                            case 0x8:             { DBG_MIOSYS(KERN_INFO " %08x BLOCK:%5d CONFIG", entrydata, blockindex); } break;
+                            case 0x9:             { DBG_MIOSYS(KERN_INFO " %08x BLOCK:%5d SYSTEM (RETRY)", entrydata, blockindex); } break;
+                            case BLOCK_TYPE_IBAD: { DBG_MIOSYS(KERN_INFO " %08x BLOCK:%5d BAD (Initial)", entrydata, blockindex); badblock_count++; } break;
+                            case BLOCK_TYPE_FBAD: { DBG_MIOSYS(KERN_INFO " %08x BLOCK:%5d BAD (Factory)", entrydata, blockindex); badblock_count++; } break;
+                            case BLOCK_TYPE_RBAD: { DBG_MIOSYS(KERN_INFO " %08x BLOCK:%5d BAD (Runtime)", entrydata, blockindex); badblock_count++; } break;
+                            case BLOCK_TYPE_ROOT: { DBG_MIOSYS(KERN_INFO " %08x BLOCK:%5d SYSTEM (ROOT)", entrydata, blockindex); } break;
+                            case BLOCK_TYPE_ENED: { DBG_MIOSYS(KERN_INFO " %08x BLOCK:%5d SYSTEM (ENED)", entrydata, blockindex); } break;
+                            case BLOCK_TYPE_FIRM: { DBG_MIOSYS(KERN_INFO " %08x BLOCK:%5d SYSTEM (FW)", entrydata, blockindex); } break;
+                            default:              { DBG_MIOSYS(KERN_INFO " %08x BLOCK %5d SYSTEM (0x%x)", entrydata, blockindex, sub_attribute); } break;
                         }
                     } break;
-                    default:  { DBG_MIOSYS(KERN_INFO " BLOCK %5d, unknown", blockindex); } break;
+                    default:  { DBG_MIOSYS(KERN_INFO " %08x BLOCK %5d, unknown (0x%02x)", entrydata, blockindex, attribute); } break;
                 }
 
                 // erasecount: max/min/average
@@ -413,13 +413,13 @@ int miosys_print_wearleveldata(void)
                     validnum_erasecount += 1;
                 }
             }
-       
+
             if (validnum_erasecount)
             {
                 average_erasecount[0] = sum_erasecount / validnum_erasecount;
                 average_erasecount[1] = ((sum_erasecount % validnum_erasecount) * 100) / validnum_erasecount;
             }
- 
+
             DBG_MIOSYS(KERN_INFO "bad blocks %d", badblock_count);
             DBG_MIOSYS(KERN_INFO "max erasecount %5d", max_erasecount);
             DBG_MIOSYS(KERN_INFO "min erasecount %5d", min_erasecount);

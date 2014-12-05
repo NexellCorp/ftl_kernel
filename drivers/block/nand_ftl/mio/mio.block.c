@@ -134,7 +134,7 @@ static int mio_background_thread(void * _arg)
             {
                 // Clear Trigger
                 io_state->transaction.trigger.e.written_flush = 0;
-            
+
                 // Set Background Jobs
                 io_state->background.t.flush = MIO_TIME_DIFF_MAX(get_jiffies_64());
                 io_state->background.e.flush = 1;

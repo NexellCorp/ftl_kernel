@@ -81,6 +81,14 @@
 #endif
 
 /******************************************************************************
+ * Optimize Option
+ ******************************************************************************/
+#if defined (__COMPILE_MODE_BEST_DEBUGGING__)
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+#endif
+
+/******************************************************************************
  * local
  ******************************************************************************/
 static struct
@@ -92,7 +100,7 @@ static struct
 
 } low_api;
 
-static int NFC_PHY_LOWAPI_write(unsigned int block_ofs, unsigned int sectors, void *buf, unsigned char enable_ecc);
+static int NFC_PHY_LOWAPI_write(unsigned int block_ofs, unsigned int page_ofs, unsigned int sectors, void *buf, unsigned char enable_ecc);
 static int NFC_PHY_LOWAPI_read(unsigned int block_ofs, unsigned int page_ofs, unsigned int sec_ofs, unsigned int sectors, void *buf, unsigned char enable_ecc);
 static int NFC_PHY_LOWAPI_erase(unsigned int block_ofs, unsigned int block_cnt);
 static int NFC_PHY_LOWAPI_ofs_write(loff_t ofs, size_t *len, u_char *buf, unsigned char enable_ecc);
@@ -281,15 +289,15 @@ int NFC_PHY_LOWAPI_ofs_write(loff_t ofs, size_t *len, u_char *buf, unsigned char
     page_ofs   = ofs & (info->pages_per_block - 1);      ofs = div_u64(ofs, info->pages_per_block);    //ofs /= info->pages_per_block;
     block_ofs  = ofs;
 
-    if (byte_ofs || sector_ofs || page_ofs || (*len & (512-1)) || (sectors & 1))
+    if (byte_ofs || sector_ofs || (*len & (512-1)) || (sectors & 1))
     {
-        DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_ofs_write: error! byte_ofs:%d, sector_ofs:%d, page_ofs%d, *len:%d, sectors:%d\n", byte_ofs, sector_ofs, page_ofs, *len, sectors);
+        DBG_PHY_LOWAPI("NFC_PHY_LOWAPI_ofs_write: error! byte_ofs:%d, sector_ofs:%d, *len:%d, sectors:%d\n", byte_ofs, sector_ofs, *len, sectors);
         // 'ofs' must be block aligned and '*len' must be 1024 bytes aligned
         *len = 0;
         return -1;
     }
 
-    curr_blockindex = NFC_PHY_LOWAPI_write(block_ofs, sectors, buf, enable_ecc);
+    curr_blockindex = NFC_PHY_LOWAPI_write(block_ofs, page_ofs, sectors, buf, enable_ecc);
     if (curr_blockindex < 0)
     {
         *len = 0;
@@ -415,7 +423,7 @@ int NFC_PHY_LOWAPI_ofs_erase(loff_t ofs, size_t size)
     return NFC_PHY_LOWAPI_erase(block_ofs, block_cnt);
 }
 
-int NFC_PHY_LOWAPI_write(unsigned int block_ofs, unsigned int sectors, void *buf, unsigned char enable_ecc)
+int NFC_PHY_LOWAPI_write(unsigned int block_ofs, unsigned int page_ofs, unsigned int sectors, void *buf, unsigned char enable_ecc)
 {
     MIO_NAND_INFO *info = &low_api.nandinfo;
     unsigned char channel = info->channel;
@@ -430,7 +438,7 @@ int NFC_PHY_LOWAPI_write(unsigned int block_ofs, unsigned int sectors, void *buf
     unsigned int curr_sectors = 0;
     unsigned char *curr_buff = (unsigned char *)buf;
     unsigned int curr_blockindex = block_ofs;
-    unsigned int curr_pageindex = 0;
+    unsigned int curr_pageindex = page_ofs;
 
     while (remain_sectors > 0)
     {
@@ -478,7 +486,7 @@ int NFC_PHY_LOWAPI_write(unsigned int block_ofs, unsigned int sectors, void *buf
         do
         {
             status = NFC_PHY_3rdWrite(channel, phyway);
-        } while (NFC_PHY_StatusIsRDY(status));
+        } while (!NFC_PHY_StatusIsRDY(status));
 
         // if failed, go next block.
         if (NFC_PHY_StatusIsFAIL(status))
@@ -536,7 +544,7 @@ int NFC_PHY_LOWAPI_read(unsigned int block_ofs, unsigned int page_ofs, unsigned 
     unsigned int retryable = 0;
 
     max_retry_cnt = NFC_PHY_READRETRY_GetTotalReadRetryCount(channel, way);
-    
+
     NfcEccStatus.level_error[way][channel] = 0;
     NfcEccStatus.error[way][channel] = 0;
     NfcEccStatus.correct_sector[way][channel] = 0;
@@ -614,6 +622,8 @@ int NFC_PHY_LOWAPI_read(unsigned int block_ofs, unsigned int page_ofs, unsigned 
                         NfcEccStatus.max_correct_bit[way][channel] = 0;
 
                         NFC_PHY_READRETRY_SetParameter(channel, phyway);
+
+                        continue;
                     }
                     else
                     {
@@ -721,3 +731,9 @@ int NFC_PHY_LOWAPI_erase(unsigned int block_ofs, unsigned int block_cnt)
     return curr_blockindex;
 }
 
+/******************************************************************************
+ * Optimize Restore
+ ******************************************************************************/
+#if defined (__COMPILE_MODE_BEST_DEBUGGING__)
+#pragma GCC pop_options
+#endif

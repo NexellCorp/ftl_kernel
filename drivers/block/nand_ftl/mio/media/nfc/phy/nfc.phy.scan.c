@@ -60,6 +60,32 @@
 /******************************************************************************
  *
  ******************************************************************************/
+unsigned int NFC_PHY_GetEccBitsOfMainData(unsigned int _data_bytes_per_page, unsigned int _spare_bytes_per_page, unsigned int _ecc_codeword_size)
+{
+    unsigned int eccbits_per_maindata = 0;
+    unsigned char valid_ecc_list[] = {4,8,16,24,40,60};
+	unsigned int spare_bytes_per_page = _spare_bytes_per_page;
+    unsigned int ecc_units = _data_bytes_per_page / _ecc_codeword_size;
+    unsigned int ecc_data_parity_size = 0;
+    int i = 0;
+
+    for (i = sizeof(valid_ecc_list)/sizeof(valid_ecc_list[0]) - 1; i >= 0; i--)
+    {
+		ecc_data_parity_size = NFC_PHY_GetEccParitySize(valid_ecc_list[i]) * ecc_units + 60;
+		if (spare_bytes_per_page > ecc_data_parity_size)
+        {
+            // Get MainData's ECC bit
+            eccbits_per_maindata = valid_ecc_list[i];
+            break;
+        }
+    }
+
+    return eccbits_per_maindata;
+}
+
+/******************************************************************************
+ *
+ ******************************************************************************/
 unsigned int NFC_PHY_GetEccBitsOfBlockInformation(unsigned int _data_bytes_per_page, unsigned int _spare_bytes_per_page, unsigned int _ecc_codeword_size, unsigned int _ecc_bits_correctability)
 {
     unsigned int eccbits_per_blockinformation = 0;
@@ -599,7 +625,7 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
     int mainblocks[] = {512, 1024, 2048, 4096, 8192, 16384, 32768};
     int i = 0;
 
-    unsigned int tCCS = 400, tADL = 400; 
+    unsigned int tCCS = 400, tADL = 400, tR = 100 * 1000;
     unsigned char paired_page_mapping = 0;
     unsigned char block_indicator = 0;
     unsigned char multiplane_erase_type = 0;
@@ -648,16 +674,13 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
                     block_indicator = 1;
                     multiplane_erase_type = 1;
                     read_retry_type = NAND_READRETRY_TYPE_TOSHIBA_A19NM;
-                    support_randomize = 0;
+                    support_randomize = 1;
 
                 } break;
 
                 default:
                 {
                     memcpy((void *)nand_config->_f.generation, (const void *)"unknown", strlen("unknown"));
-
-                    tADL = 300;
-                    tCCS = 300;
 
                     paired_page_mapping = 1;
                     block_indicator = 1;
@@ -695,7 +718,7 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
 
         nand_config->_f.timing.async.tClk  = __MHZ(50);
         nand_config->_f.timing.async.tRWC  = 20;
-        nand_config->_f.timing.async.tR    = jedec_param->_f.electrical_parameters.tR * 1000;
+        nand_config->_f.timing.async.tR    = (jedec_param->_f.electrical_parameters.tR)? jedec_param->_f.electrical_parameters.tR * 1000: tR;
         nand_config->_f.timing.async.tWB   = 100;
         nand_config->_f.timing.async.tCCS  = (jedec_param->_f.electrical_parameters.tCCS)? jedec_param->_f.electrical_parameters.tCCS: tCCS;
         nand_config->_f.timing.async.tADL  = (jedec_param->_f.electrical_parameters.tADL)? jedec_param->_f.electrical_parameters.tADL: tADL;
@@ -732,7 +755,7 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
 
         nand_config->_f.timing.async.tClk  = __MHZ(40);
         nand_config->_f.timing.async.tRWC  = 25;
-        nand_config->_f.timing.async.tR    = jedec_param->_f.electrical_parameters.tR * 1000;
+        nand_config->_f.timing.async.tR    = (jedec_param->_f.electrical_parameters.tR)? jedec_param->_f.electrical_parameters.tR * 1000: tR;
         nand_config->_f.timing.async.tWB   = 100;
         nand_config->_f.timing.async.tCCS  = (jedec_param->_f.electrical_parameters.tCCS)? jedec_param->_f.electrical_parameters.tCCS: tCCS;
         nand_config->_f.timing.async.tADL  = (jedec_param->_f.electrical_parameters.tADL)? jedec_param->_f.electrical_parameters.tADL: tADL;
@@ -769,7 +792,7 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
 
         nand_config->_f.timing.async.tClk  = __MHZ(33);
         nand_config->_f.timing.async.tRWC  = 30;
-        nand_config->_f.timing.async.tR    = jedec_param->_f.electrical_parameters.tR * 1000;
+        nand_config->_f.timing.async.tR    = (jedec_param->_f.electrical_parameters.tR)? jedec_param->_f.electrical_parameters.tR * 1000: tR;
         nand_config->_f.timing.async.tWB   = 100;
         nand_config->_f.timing.async.tCCS  = (jedec_param->_f.electrical_parameters.tCCS)? jedec_param->_f.electrical_parameters.tCCS: tCCS;
         nand_config->_f.timing.async.tADL  = (jedec_param->_f.electrical_parameters.tADL)? jedec_param->_f.electrical_parameters.tADL: tADL;
@@ -805,7 +828,7 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
 
         nand_config->_f.timing.async.tClk  = __MHZ(28);
         nand_config->_f.timing.async.tRWC  = 35;
-        nand_config->_f.timing.async.tR    = jedec_param->_f.electrical_parameters.tR * 1000;
+        nand_config->_f.timing.async.tR    = (jedec_param->_f.electrical_parameters.tR)? jedec_param->_f.electrical_parameters.tR * 1000: tR;
         nand_config->_f.timing.async.tWB   = 100;
         nand_config->_f.timing.async.tCCS  = (jedec_param->_f.electrical_parameters.tCCS)? jedec_param->_f.electrical_parameters.tCCS: tCCS;
         nand_config->_f.timing.async.tADL  = (jedec_param->_f.electrical_parameters.tADL)? jedec_param->_f.electrical_parameters.tADL: tADL;
@@ -842,7 +865,7 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
 
         nand_config->_f.timing.async.tClk  = __MHZ(20);
         nand_config->_f.timing.async.tRWC  = 50;
-        nand_config->_f.timing.async.tR    = jedec_param->_f.electrical_parameters.tR * 1000;
+        nand_config->_f.timing.async.tR    = (jedec_param->_f.electrical_parameters.tR)? jedec_param->_f.electrical_parameters.tR * 1000: tR;
         nand_config->_f.timing.async.tWB   = 100;
         nand_config->_f.timing.async.tCCS  = (jedec_param->_f.electrical_parameters.tCCS)? jedec_param->_f.electrical_parameters.tCCS: tCCS;
         nand_config->_f.timing.async.tADL  = (jedec_param->_f.electrical_parameters.tADL)? jedec_param->_f.electrical_parameters.tADL: tADL;
@@ -877,7 +900,7 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
 
         nand_config->_f.timing.async.tClk  = __MHZ(10);
         nand_config->_f.timing.async.tRWC  = 100;
-        nand_config->_f.timing.async.tR    = jedec_param->_f.electrical_parameters.tR * 1000;
+        nand_config->_f.timing.async.tR    = (jedec_param->_f.electrical_parameters.tR)? jedec_param->_f.electrical_parameters.tR * 1000: tR;
         nand_config->_f.timing.async.tWB   = 200;
         nand_config->_f.timing.async.tCCS  = (jedec_param->_f.electrical_parameters.tCCS)? jedec_param->_f.electrical_parameters.tCCS: tCCS;
         nand_config->_f.timing.async.tADL  = (jedec_param->_f.electrical_parameters.tADL)? jedec_param->_f.electrical_parameters.tADL: tADL;
@@ -912,7 +935,7 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
 
         nand_config->_f.timing.async.tClk  = __MHZ(10);
         nand_config->_f.timing.async.tRWC  = 100;
-        nand_config->_f.timing.async.tR    = jedec_param->_f.electrical_parameters.tR * 1000;
+        nand_config->_f.timing.async.tR    = (jedec_param->_f.electrical_parameters.tR)? jedec_param->_f.electrical_parameters.tR * 1000: tR;
         nand_config->_f.timing.async.tWB   = 200;
         nand_config->_f.timing.async.tCCS  = (jedec_param->_f.electrical_parameters.tCCS)? jedec_param->_f.electrical_parameters.tCCS: tCCS;
         nand_config->_f.timing.async.tADL  = (jedec_param->_f.electrical_parameters.tADL)? jedec_param->_f.electrical_parameters.tADL: tADL;
@@ -970,8 +993,16 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
     {
         unsigned int  i = 0;
         unsigned int block_endurance_multiple = 1;
-        unsigned int ecc_codeword_size = __POW(1,jedec_param->_f.ecc_and_endurance.information_block_0.codeword_size);
+        unsigned int ecc_codeword_size = (jedec_param->_f.ecc_and_endurance.information_block_0.codeword_size)? __POW(1,jedec_param->_f.ecc_and_endurance.information_block_0.codeword_size): 1024;
         unsigned int eccbits_per_blockinformation = 0;
+        unsigned char number_of_bits_ecc_correctability = jedec_param->_f.ecc_and_endurance.information_block_0.number_of_bits_ecc_correctability;
+
+        if (!number_of_bits_ecc_correctability)
+        {
+            number_of_bits_ecc_correctability = NFC_PHY_GetEccBitsOfMainData(jedec_param->_f.memory_organization.number_of_data_bytes_per_page,
+                                                                             jedec_param->_f.memory_organization.number_of_spare_bytes_per_page,
+                                                                             ecc_codeword_size);
+        }
 
         /**********************************************************************
          * Calc block information's ecc bits
@@ -979,7 +1010,7 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
         eccbits_per_blockinformation = NFC_PHY_GetEccBitsOfBlockInformation(jedec_param->_f.memory_organization.number_of_data_bytes_per_page,
                                                                             jedec_param->_f.memory_organization.number_of_spare_bytes_per_page,
                                                                             ecc_codeword_size,
-                                                                            jedec_param->_f.ecc_and_endurance.information_block_0.number_of_bits_ecc_correctability);
+                                                                            number_of_bits_ecc_correctability);
 
         /**********************************************************************
          *
@@ -992,9 +1023,9 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
         /**********************************************************************
          *
          **********************************************************************/
-        nand_config->_f.number_of_bits_ecc_correctability = jedec_param->_f.ecc_and_endurance.information_block_0.number_of_bits_ecc_correctability;
+        nand_config->_f.number_of_bits_ecc_correctability = number_of_bits_ecc_correctability;
         nand_config->_f.maindatabytes_per_eccunit         = ecc_codeword_size;
-        nand_config->_f.eccbits_per_maindata              = jedec_param->_f.ecc_and_endurance.information_block_0.number_of_bits_ecc_correctability;
+        nand_config->_f.eccbits_per_maindata              = number_of_bits_ecc_correctability;
         nand_config->_f.eccbits_per_blockinformation      = eccbits_per_blockinformation;
         nand_config->_f.block_endurance                   = jedec_param->_f.ecc_and_endurance.information_block_0.block_endurance[0] * block_endurance_multiple;
         if (!nand_config->_f.block_endurance)
@@ -1009,16 +1040,16 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
      **************************************************************************/
     nand_config->_f.support_list.slc_mode            = 0;   // must be '0'
     nand_config->_f.support_list.multiplane_read     = 0;   // must be '0'
-    nand_config->_f.support_list.multiplane_write    = 0; //jedec_param->_f.revision_info_and_features.features_supported.multi_plane_program_and_erase_operations;
+    nand_config->_f.support_list.multiplane_write    = jedec_param->_f.revision_info_and_features.features_supported.multi_plane_program_and_erase_operations;
     nand_config->_f.support_list.cache_read          = 0;   // must be '0'
-    nand_config->_f.support_list.cache_write         = 0; //jedec_param->_f.revision_info_and_features.optional_commands_supported.supports_page_cache_program_command;
+    nand_config->_f.support_list.cache_write         = jedec_param->_f.revision_info_and_features.optional_commands_supported.supports_page_cache_program_command;
     nand_config->_f.support_list.interleave          = 0;   // must be '0'
     nand_config->_f.support_list.randomize           = support_randomize;
 
     nand_config->_f.support_type.multiplane_read     = 0;   // must be '0'
-    nand_config->_f.support_type.multiplane_write    = 0; //jedec_param->_f.revision_info_and_features.features_supported.multi_plane_program_and_erase_operations ? 1 : 0;
+    nand_config->_f.support_type.multiplane_write    = jedec_param->_f.revision_info_and_features.features_supported.multi_plane_program_and_erase_operations ? 1 : 0;
     nand_config->_f.support_type.cache_read          = 0;   // must be '0'
-    nand_config->_f.support_type.cache_write         = 0; //jedec_param->_f.revision_info_and_features.optional_commands_supported.supports_page_cache_program_command ? 1 : 0;
+    nand_config->_f.support_type.cache_write         = jedec_param->_f.revision_info_and_features.optional_commands_supported.supports_page_cache_program_command ? 1 : 0;
     nand_config->_f.support_type.interleave          = 0;   // must be '0'
     nand_config->_f.support_type.paired_page_mapping = paired_page_mapping;
 
@@ -1026,7 +1057,7 @@ unsigned int NFC_PHY_ConfigJedec(unsigned char * _id, unsigned int _nand, void *
 
     // 0: match block & page address
     // 1: match page address
-    nand_config->_f.support_type.paired_plane        = 0; //jedec_param->_f.memory_organization.multi_plane_operation_attributes.no_multi_plane_block_address_restrictions;
+    nand_config->_f.support_type.paired_plane        = jedec_param->_f.memory_organization.multi_plane_operation_attributes.no_multi_plane_block_address_restrictions;
 
     // 1: CMD1(0x60)-ADDR-CMD1(0x60)-ADDR-CMD2(0xD0)-BSY
     // 2: CMD1(0x60)-ADDR-CMD2(0xD1)-BSY-CMD1(0x60)-ADDR-CMD2(0xD0)-BSY
@@ -1201,23 +1232,25 @@ unsigned int NFC_PHY_ScanToshiba(unsigned char * _id, unsigned char * _jedec_id,
         ('E' == jedec_id[3]) &&
         ('C' == jedec_id[4]))
     {
-
         /**********************************************************************
          * JEDEC standard formatted Parameter
          **********************************************************************/
         NFC_PHY_GetStandardParameter(0, 0, 0x40, (unsigned char *)&phy_features.jedec_param, (unsigned char *)0);
 
         /**********************************************************************
-        * Generation : 19nm
+        * Generation : A19nm (1Ynm)
         **********************************************************************/
         device_model = phy_features.jedec_param._f.manufacturer_information.device_model;
         
              if (!memcmp((const void *)device_model, (const void *)"TC58TEG6DDKTA00", strlen("TC58TEG6DDKTA00"))) { nand = NAND_TOSHIBA_TC58TEG6DDKTA00; }
-        else if (!memcmp((const void *)device_model, (const void *)"TH58TEG7DDKTA20", strlen("TH58TEG7DDKTA20"))) { nand = NAND_TOSHIBA_TC58TEG6DDKTAI0; }
-        else if (!memcmp((const void *)device_model, (const void *)"TH58TEG8DDKTA20", strlen("TH58TEG8DDKTA20"))) { nand = NAND_TOSHIBA_TH58TEG7DDKTA20; }
-        else if (!memcmp((const void *)device_model, (const void *)"TC58TEG6DDKTAI0", strlen("TC58TEG6DDKTAI0"))) { nand = NAND_TOSHIBA_TH58TEG7DDKTAK0; }
-        else if (!memcmp((const void *)device_model, (const void *)"TH58TEG7DDKTAK0", strlen("TH58TEG7DDKTAK0"))) { nand = NAND_TOSHIBA_TH58TEG8DDKTA20; }
+        else if (!memcmp((const void *)device_model, (const void *)"TC58TEG6DDKTAI0", strlen("TC58TEG6DDKTAI0"))) { nand = NAND_TOSHIBA_TC58TEG6DDKTAI0; }
+        else if (!memcmp((const void *)device_model, (const void *)"TH58TEG7DDKTA20", strlen("TH58TEG7DDKTA20"))) { nand = NAND_TOSHIBA_TH58TEG7DDKTA20; }
+        else if (!memcmp((const void *)device_model, (const void *)"TH58TEG7DDKTAK0", strlen("TH58TEG7DDKTAK0"))) { nand = NAND_TOSHIBA_TH58TEG7DDKTAK0; }
+        else if (!memcmp((const void *)device_model, (const void *)"TH58TEG8DDKTA20", strlen("TH58TEG8DDKTA20"))) { nand = NAND_TOSHIBA_TH58TEG8DDKTA20; }
         else if (!memcmp((const void *)device_model, (const void *)"TH58TEG8DDKTAK0", strlen("TH58TEG8DDKTAK0"))) { nand = NAND_TOSHIBA_TH58TEG8DDKTAK0; }
+
+        else if (!memcmp((const void *)device_model, (const void *)"TC58TEG5DCKTA00", strlen("TC58TEG5DCKTA00"))) { nand = NAND_TOSHIBA_TC58TEG5DCKTA00; }
+        else if (!memcmp((const void *)device_model, (const void *)"TC58TEG5DCKTAI0", strlen("TC58TEG5DCKTAI0"))) { nand = NAND_TOSHIBA_TC58TEG5DCKTAI0; }
 
         /**********************************************************************
          * Generation : Unknown !
