@@ -89,7 +89,12 @@ struct mio_state
     struct
     {
         struct task_struct * thread;
-        unsigned int thread_sleep;
+        wait_queue_head_t wq;
+
+#define MIO_BG_IDLE           (0)
+#define MIO_BG_SCHEDULED      (1)
+#define MIO_BG_SLEEP          (2)
+        unsigned short status;
 
         // time
         struct

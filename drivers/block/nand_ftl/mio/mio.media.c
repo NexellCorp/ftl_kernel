@@ -79,12 +79,6 @@ int media_open(void)
     printk(KERN_INFO "MIO.MEDIA: Open Begin\n");
 
     /**************************************************************************
-     * MIO Exchange Init
-     **************************************************************************/
-    if (Exchange.debug.misc.media_open) { printk(KERN_INFO "MIO.MEDIA: EXCHANGE_init()\n"); }
-    EXCHANGE_init();
-
-    /**************************************************************************
      * MIO Debug Options
      **************************************************************************/
   //Exchange.debug.misc.block_thread = 1;
@@ -124,10 +118,14 @@ int media_open(void)
     Exchange.debug.nfc.phy.err_ecc_uncorrectable = 1;
 
     /**************************************************************************
+     * MIO Exchange Init
+     **************************************************************************/
+    if (Exchange.debug.misc.media_open) { printk(KERN_INFO "MIO.MEDIA: EXCHANGE_init()\n"); }
+    EXCHANGE_init();
+
+    /**************************************************************************
      * FTL Need Leaner Buffer, Do Not Use kmalloc(...)
      **************************************************************************/
-    if (Exchange.debug.misc.media_open) { Exchange.sys.fn.print("MIO.MEDIA: Memory Pool Pre-Allocation\n"); }
-
     Exchange.buffer.mpool_size  = 0;
     Exchange.buffer.mpool_size += 1 * 4 * (4<<20); // 1CH x 4WAY x 4MB (Page Map Table per Lun)
     Exchange.buffer.mpool_size += 1 * 4 * (1<<20); // 1CH x 4WAY x 1MB (Update Map Table per Lun)
